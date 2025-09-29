@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fleet Management System Test</title>
+    <script type="module">
+        // Test import to see if there are any syntax errors
+        try {
+            console.log('Testing imports...');
+            
+            // Test firestoreService imports
+            import('./src/api/firestoreService.js').then(module => {
+                console.log('✅ firestoreService loaded successfully');
+                console.log('Available exports:', Object.keys(module));
+            }).catch(error => {
+                console.error('❌ Error loading firestoreService:', error);
+            });
+            
+            // Test app.js imports
+            import('./src/app.js').then(module => {
+                console.log('✅ app.js loaded successfully');
+            }).catch(error => {
+                console.error('❌ Error loading app.js:', error);
+            });
+            
+            // Test ReportsView imports
+            import('./src/components/ReportsView.js').then(module => {
+                console.log('✅ ReportsView loaded successfully');
+                console.log('Available exports:', Object.keys(module));
+            }).catch(error => {
+                console.error('❌ Error loading ReportsView:', error);
+            });
+            
+        } catch (error) {
+            console.error('❌ Test error:', error);
+        }
+    </script>
+</head>
+<body>
+    <h1>Fleet Management System Test</h1>
+    <p>Check the browser console for test results.</p>
+    <div id="test-results">
+        <p>Running import tests...</p>
+    </div>
+    
+    <script>
+        // Update status in DOM
+        setTimeout(() => {
+            document.getElementById('test-results').innerHTML = `
+                <p>✅ Test completed. Check browser console (F12) for detailed results.</p>
+                <p>If all imports show as successful, the system should work properly.</p>
+            `;
+        }, 2000);
+    </script>
+</body>
+</html>
