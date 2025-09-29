@@ -679,4 +679,3 @@ if (typeof window !== 'undefined') {
     window.resetAllSystemData = resetAllSystemData;
     console.log('🔧 Global reset function available: window.resetAllSystemData()');
 }
-
