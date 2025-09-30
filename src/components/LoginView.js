@@ -110,25 +110,6 @@ export const renderLoginView = (onSubmit) => {
                             </div>
                         </div>
                     </form>
-
-                    <!-- Demo Credentials -->
-                    <div class="mt-6 p-4 bg-dark-800/50 rounded-xl animate-slide-up" style="animation-delay: 0.4s;">
-                        <h3 class="text-sm font-semibold text-gray-300 mb-2">Demo Credentials:</h3>
-                        <div class="space-y-1 text-xs text-gray-400">
-                            <div class="flex justify-between">
-                                <span>Dispatcher:</span>
-                                <span class="text-primary-400">dispatcher@example.com</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Driver:</span>
-                                <span class="text-primary-400">priya@example.com</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Password:</span>
-                                <span class="text-primary-400">password123</span>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Footer -->
@@ -221,18 +202,5 @@ export const initializeLoginView = (onSubmit) => {
             loginText.textContent = 'Sign In';
             loginSpinner.classList.add('hidden');
         }
-    });
-
-    // Auto-fill demo credentials when role is selected
-    const emailInput = document.getElementById('email');
-    roleOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            const role = option.querySelector('input').value;
-            if (role === 'dispatcher') {
-                emailInput.value = 'dispatcher@example.com';
-            } else if (role === 'driver') {
-                emailInput.value = 'priya@example.com';
-            }
-        });
     });
 };

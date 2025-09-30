@@ -36,6 +36,7 @@ import { renderDispatcherDashboard } from './components/dispatcherDashboard.js';
 import { renderDriverDashboard } from './components/driverDashboard.js';
 import { renderDashboardLayout, initializeDashboardLayout, showLoadingOverlay, hideLoadingOverlay } from './components/DashboardLayout.js';
 import { renderDriverLayout, initializeDriverLayout, updateLocationStatus } from './components/DriverLayout.js';
+import { renderLandingView, initializeLandingView } from './components/LandingView.js';
 import { openTaskModal } from './components/TaskFormModal.js';
 import { openVehicleModal } from './components/VehicleFormModal.js';
 import { renderOptimizedRoutes } from './components/RoutesView.js';
@@ -46,6 +47,7 @@ import { startLocationTracking, stopLocationTracking } from './services/location
 // --- State ---
 let currentUnsubscribes = [];
 let isFirestoreInitialized = false;
+let currentView = null; // 'landing', 'login', 'dashboard', or 'driver'
 
 // --- Helper Functions ---
 const updateVehicleStatus = async (vehicleId, status) => {
@@ -63,100 +65,369 @@ const updateVehicleStatus = async (vehicleId, status) => {
 
 // --- Main Application Controller ---
 const main = async () => {
-    // Initialize Firebase and Firestore
-    initializeFirebase();
+    console.log('🚀 Fleet Command - Application Starting...');
     
-    // Only initialize collections if they don't exist
+    // Initialize Firebase and theme first
+    initializeFirebase();
+    initializeTheme();
+    
+    // Initialize Firestore collections if needed
+    await initializeFirebaseCollections();
+    
+    // Set up authentication state listener
+    onAuthStateChangedHandler(handleAuthStateChange);
+    
+    // Check current user and render appropriate view
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+        console.log('👤 User already authenticated:', currentUser.email);
+        await loadDashboard(currentUser);
+    } else {
+        console.log('👋 No authenticated user, showing landing page');
+        loadLandingView();
+    }
+    
+    console.log('✅ Application initialization complete');
+};
+
+// --- Firebase Collections Initialization ---
+const initializeFirebaseCollections = async () => {
     if (!isFirestoreInitialized) {
         try {
             const db = getFirestore();
             const vehiclesSnapshot = await getDocs(collection(db, 'vehicles'));
             if (vehiclesSnapshot.empty) {
-                console.log("Initializing Firestore collections...");
+                console.log("🔧 Initializing Firestore collections...");
                 await initializeFirestore();
+                console.log("✅ Firestore collections initialized");
+            } else {
+                console.log("✅ Firestore collections already exist");
             }
             isFirestoreInitialized = true;
         } catch (error) {
-            console.error("Error checking/initializing Firestore:", error);
+            console.error("❌ Error checking/initializing Firestore:", error);
         }
     }
+};
 
-    // Initialize theme
-    initializeTheme();
+// --- Authentication State Change Handler ---
+const handleAuthStateChange = (user) => {
+    console.log('🔐 Auth state changed:', user ? user.email : 'No user');
     
-    // Initialize theme toggle
-    initializeThemeToggle();
+    // Clean up previous listeners and state
+    cleanupPreviousListeners();
+    
+    if (user) {
+        // User is authenticated - load appropriate dashboard
+        loadDashboard(user);
+    } else {
+        // User is not authenticated - show landing page
+        loadLandingView();
+    }
+};
 
-    // Handle login form submission with enhanced UX
+// --- View Loading Functions ---
+
+/**
+ * Loads the landing page for unauthenticated users
+ */
+const loadLandingView = () => {
+    if (currentView === 'landing') return; // Avoid re-rendering
+    
+    console.log('🏠 Loading Landing View');
+    currentView = 'landing';
+    
+    const appContainer = document.getElementById('app-container');
+    if (!appContainer) {
+        console.error('❌ App container not found');
+        return;
+    }
+    
+    // Render landing view
+    appContainer.innerHTML = renderLandingView(handleGetStarted);
+    
+    // Initialize landing view behavior
+    initializeLandingView(handleGetStarted);
+    
+    console.log('✅ Landing View loaded successfully');
+};
+
+/**
+ * Loads the login view when user clicks "Get Started"
+ */
+const loadLoginView = () => {
+    if (currentView === 'login') return; // Avoid re-rendering
+    
+    console.log('🔑 Loading Login View');
+    currentView = 'login';
+    
+    const appContainer = document.getElementById('app-container');
+    if (!appContainer) {
+        console.error('❌ App container not found');
+        return;
+    }
+    
+    // Clear current content and render login interface
+    appContainer.innerHTML = `
+        <div id="login-container" class="relative min-h-screen flex items-center justify-center p-4">
+            <!-- Animated Background -->
+            <div class="absolute inset-0 overflow-hidden pointer-events-none">
+                <div class="absolute -top-40 -right-40 w-80 h-80 bg-primary-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-soft"></div>
+                <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-primary-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-soft" style="animation-delay: 1s;"></div>
+            </div>
+
+            <!-- Login Card -->
+            <div class="relative w-full max-w-md animate-slide-up">
+                <!-- Logo and Header -->
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center justify-center w-16 h-16 mb-6 bg-gradient-to-r from-primary-500 to-primary-400 rounded-2xl shadow-lg animate-glow">
+                        <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                    <h1 class="text-3xl font-bold theme-text-primary mb-2">Fleet Command</h1>
+                    <p class="theme-text-muted font-medium">Advanced Fleet Management Platform</p>
+                </div>
+
+                <!-- Login Form Card -->
+                <div class="theme-card p-8 shadow-2xl">
+                    <form id="login-form" class="space-y-6">
+                        <div class="space-y-4">
+                            <div class="animate-slide-up" style="animation-delay: 0.1s;">
+                                <label for="email" class="block text-sm font-semibold theme-text-muted mb-2">Email Address</label>
+                                <input 
+                                    id="email" 
+                                    name="email" 
+                                    type="email" 
+                                    autocomplete="email" 
+                                    required 
+                                    placeholder="Enter your email"
+                                    class="w-full px-4 py-3 theme-input rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
+                                >
+                            </div>
+
+                            <div class="animate-slide-up" style="animation-delay: 0.2s;">
+                                <label for="password" class="block text-sm font-semibold theme-text-muted mb-2">Password</label>
+                                <input 
+                                    id="password" 
+                                    name="password" 
+                                    type="password" 
+                                    autocomplete="current-password" 
+                                    required 
+                                    placeholder="Enter your password"
+                                    class="w-full px-4 py-3 theme-input rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
+                                >
+                            </div>
+                        </div>
+
+                        <div class="animate-slide-up" style="animation-delay: 0.3s;">
+                            <button 
+                                type="submit" 
+                                id="login-btn"
+                                class="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                            >
+                                <span class="flex items-center justify-center">
+                                    <span id="login-text">Sign In</span>
+                                    <svg id="login-spinner" class="animate-spin -mr-1 ml-3 h-4 w-4 text-white hidden" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </span>
+                            </button>
+                        </div>
+
+                        <div id="auth-error" class="hidden animate-slide-down">
+                            <div class="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                                <div class="flex items-center">
+                                    <svg class="w-5 h-5 text-red-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <p id="auth-error-text" class="text-sm text-red-400"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Footer -->
+                <div class="text-center mt-8 animate-slide-up" style="animation-delay: 0.5s;">
+                    <p class="theme-text-muted text-sm">
+                        Secure • Real-time • Intelligent
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- App Root for dashboards -->
+        <div id="app-root" class="hidden"></div>
+    `;
+    
+    // Initialize login form handlers after DOM is ready
+    setTimeout(() => {
+        initializeLoginHandlers();
+    }, 100);
+    
+    console.log('✅ Login View loaded successfully');
+};
+
+/**
+ * Loads the appropriate dashboard based on user role
+ */
+const loadDashboard = async (user) => {
+    const userRole = getUserRole(user.email);
+    
+    if (currentView === `dashboard-${userRole}`) return; // Avoid re-rendering
+    
+    console.log(`📊 Loading ${userRole} Dashboard for:`, user.email);
+    currentView = `dashboard-${userRole}`;
+    
+    const loginContainer = document.getElementById('login-container');
+    const appRoot = document.getElementById('app-root');
+    
+    if (!loginContainer || !appRoot) {
+        console.error('❌ Required containers not found');
+        return;
+    }
+    
+    // Hide login and show app
+    loginContainer.classList.add('hidden');
+    appRoot.classList.remove('hidden');
+    
+    // Clear previous content
+    appRoot.innerHTML = '';
+    
+    if (userRole === 'dispatcher') {
+        await loadDispatcherDashboard(user);
+    } else {
+        await loadDriverDashboard(user);
+    }
+    
+    console.log(`✅ ${userRole} Dashboard loaded successfully`);
+};
+
+/**
+ * Loads dispatcher dashboard
+ */
+const loadDispatcherDashboard = async (user) => {
+    const dashboardContent = renderDispatcherDashboard(user.email);
+    const appRoot = document.getElementById('app-root');
+    
+    appRoot.innerHTML = renderDashboardLayout(user.email, dashboardContent);
+    initializeDashboardLayout(handleSignOut);
+    await setupDispatcherDashboard();
+};
+
+/**
+ * Loads driver dashboard
+ */
+const loadDriverDashboard = async (user) => {
+    const dashboardContent = renderDriverDashboard(user.email);
+    const appRoot = document.getElementById('app-root');
+    
+    appRoot.innerHTML = renderDriverLayout(user.email, dashboardContent);
+    initializeDriverLayout(handleSignOut, handleLocationToggle);
+    await setupDriverDashboard(user.email);
+};
+
+// --- Event Handlers ---
+
+/**
+ * Handler for "Get Started" button clicks
+ */
+const handleGetStarted = () => {
+    console.log('👆 Get Started clicked - navigating to login');
+    loadLoginView();
+};
+
+/**
+ * Handler for sign out
+ */
+const handleSignOut = async () => {
+    try {
+        console.log('👋 Signing out user');
+        cleanupPreviousListeners();
+        await signOutUser();
+        
+        // Show notification
+        showNotification('Signed out successfully', 'success');
+        
+        // Navigate back to landing page
+        loadLandingView();
+        
+        console.log('✅ Sign out successful');
+    } catch (error) {
+        console.error('❌ Sign out error:', error);
+        showNotification('Error signing out', 'error');
+    }
+};
+
+/**
+ * Initialize login form handlers
+ */
+const initializeLoginHandlers = () => {
     const loginForm = document.getElementById('login-form');
+    if (!loginForm) {
+        console.error('❌ Login form not found');
+        return;
+    }
+    
+    // Remove existing listeners
+    loginForm.replaceWith(loginForm.cloneNode(true));
+    const newLoginForm = document.getElementById('login-form');
+    
     const errorEl = document.getElementById('auth-error');
     const loginBtn = document.getElementById('login-btn');
     const loginText = document.getElementById('login-text');
     const loginSpinner = document.getElementById('login-spinner');
 
-    loginForm.addEventListener('submit', async (e) => {
+    newLoginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const formData = new FormData(loginForm);
+        const formData = new FormData(newLoginForm);
         const email = formData.get('email');
         const password = formData.get('password');
         
         // Clear previous errors
-        errorEl.classList.add('hidden');
+        if (errorEl) errorEl.classList.add('hidden');
         
         // Show loading state
-        loginBtn.disabled = true;
-        loginText.textContent = 'Signing in...';
-        loginSpinner.classList.remove('hidden');
+        if (loginBtn) loginBtn.disabled = true;
+        if (loginText) loginText.textContent = 'Signing in...';
+        if (loginSpinner) loginSpinner.classList.remove('hidden');
         
         try {
             await handleAuth(email, password);
-            console.log('Login successful:', email);
+            console.log('✅ Login successful:', email);
+            showNotification('Login successful!', 'success');
         } catch (error) {
-            console.error("Authentication failed:", error);
+            console.error("❌ Authentication failed:", error);
             
             // Show error with animation
-            const errorTextEl = document.getElementById('auth-error-text');
-            errorTextEl.textContent = "Login failed. Please check your credentials.";
-            errorEl.classList.remove('hidden');
+            if (errorEl && document.getElementById('auth-error-text')) {
+                const errorTextEl = document.getElementById('auth-error-text');
+                errorTextEl.textContent = "Login failed. Please check your credentials.";
+                errorEl.classList.remove('hidden');
+            }
+            
+            showNotification('Login failed. Please check your credentials.', 'error');
             
             // Reset button state
-            loginBtn.disabled = false;
-            loginText.textContent = 'Sign In';
-            loginSpinner.classList.add('hidden');
+            if (loginBtn) loginBtn.disabled = false;
+            if (loginText) loginText.textContent = 'Sign In';
+            if (loginSpinner) loginSpinner.classList.add('hidden');
         }
     });
+    
+    console.log('✅ Login handlers initialized');
+};
 
-    onAuthStateChangedHandler((user) => {
-        const loginContainer = document.getElementById('login-container');
-        const appRoot = document.getElementById('app-root');
-        
-        cleanupPreviousListeners();
-        appRoot.innerHTML = '';
+// --- Utility Functions ---
 
-        if (user) {
-            // Hide login and show app with transition
-            loginContainer.classList.add('hidden');
-            appRoot.classList.remove('hidden');
-            
-            // Determine user role and render appropriate dashboard
-            if (user.email === 'dispatcher@example.com') {
-                const dashboardContent = renderDispatcherDashboard(user.email);
-                appRoot.innerHTML = renderDashboardLayout(user.email, dashboardContent);
-                initializeDashboardLayout(signOutUser);
-                setupDispatcherDashboard();
-            } else {
-                const dashboardContent = renderDriverDashboard(user.email);
-                appRoot.innerHTML = renderDriverLayout(user.email, dashboardContent);
-                initializeDriverLayout(signOutUser, handleLocationToggle);
-                setupDriverDashboard(user.email);
-            }
-        } else {
-            // Show login and hide app
-            loginContainer.classList.remove('hidden');
-            appRoot.classList.add('hidden');
-        }
-    });
+/**
+ * Determines user role based on email
+ */
+const getUserRole = (email) => {
+    return email === 'dispatcher@example.com' ? 'dispatcher' : 'driver';
 };
 
 // --- Dashboard Setups ---
@@ -968,60 +1239,83 @@ window.updateKPIDisplay = (kpis) => {
     console.log('📊 KPI display updated:', kpis);
 };
 
-// --- Theme Management ---
+// === UNIFIED THEME MANAGEMENT SYSTEM ===
 const initializeTheme = () => {
     const savedTheme = localStorage.getItem('theme') || 'dark';
     const body = document.body;
     
-    if (savedTheme === 'light') {
-        body.classList.remove('dark');
-        body.classList.add('light');
-    } else {
-        body.classList.remove('light');
-        body.classList.add('dark');
-    }
+    // Apply saved theme
+    body.classList.remove('dark', 'light');
+    body.classList.add(savedTheme);
     
-    updateThemeToggle(savedTheme === 'dark');
+    console.log(`🎨 Theme initialized: ${savedTheme.toUpperCase()} mode`);
+    
+    // Update any existing theme toggles
+    updateAllThemeToggles(savedTheme === 'dark');
 };
 
 const initializeThemeToggle = () => {
-    const themeToggle = document.getElementById('theme-toggle');
-    if (themeToggle) {
-        themeToggle.addEventListener('click', toggleTheme);
-    }
+    // Find all theme toggle buttons and attach unified handler
+    const themeToggles = document.querySelectorAll('#theme-toggle, #nav-theme-toggle');
+    themeToggles.forEach(toggle => {
+        if (toggle && !toggle.hasAttribute('data-theme-initialized')) {
+            toggle.addEventListener('click', toggleTheme);
+            toggle.setAttribute('data-theme-initialized', 'true');
+        }
+    });
 };
 
 const toggleTheme = () => {
     const body = document.body;
-    const themeToggle = document.getElementById('theme-toggle');
-    const isDark = body.classList.contains('dark');
+    const isDarkMode = body.classList.contains('dark');
     
-    if (isDark) {
+    if (isDarkMode) {
+        // Switch to Light Mode
         body.classList.remove('dark');
         body.classList.add('light');
         localStorage.setItem('theme', 'light');
-        updateThemeToggle(false);
+        updateAllThemeToggles(false);
+        console.log('🌞 GLOBAL: Switched to Light Mode');
     } else {
+        // Switch to Dark Mode
         body.classList.remove('light');
         body.classList.add('dark');
         localStorage.setItem('theme', 'dark');
-        updateThemeToggle(true);
+        updateAllThemeToggles(true);
+        console.log('🌙 GLOBAL: Switched to Dark Mode');
     }
+    
+    // Dispatch global theme change event
+    window.dispatchEvent(new CustomEvent('themeChanged', { 
+        detail: { theme: body.classList.contains('dark') ? 'dark' : 'light' } 
+    }));
 };
 
-const updateThemeToggle = (isDark) => {
-    const themeToggle = document.getElementById('theme-toggle');
-    if (themeToggle) {
+const updateAllThemeToggles = (isDark) => {
+    // Update all theme toggle buttons consistently
+    const allToggles = document.querySelectorAll('#theme-toggle, #nav-theme-toggle');
+    
+    allToggles.forEach(toggle => {
+        if (!toggle) return;
+        
         if (isDark) {
-            themeToggle.classList.add('dark');
-            themeToggle.classList.remove('light');
-            themeToggle.querySelector('span').textContent = '🌙';
+            // Dark mode - show moon icon
+            toggle.innerHTML = `
+                <svg class="w-5 h-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            `;
+            toggle.title = 'Switch to Light Mode';
         } else {
-            themeToggle.classList.add('light');
-            themeToggle.classList.remove('dark');
-            themeToggle.querySelector('span').textContent = '☀️';
+            // Light mode - show sun icon
+            toggle.innerHTML = `
+                <svg class="w-5 h-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+            `;
+            toggle.title = 'Switch to Dark Mode';
         }
-    }
+    });
 };
 
 // --- Driver Location Toggle Handler ---

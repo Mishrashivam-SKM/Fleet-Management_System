@@ -11,8 +11,8 @@ export const renderDispatcherDashboard = (userEmail) => {
             <div class="mb-8">
                 <div class="flex flex-wrap justify-between items-start mb-6 gap-4">
                     <div class="animate-slide-up">
-                        <h1 class="text-3xl font-bold text-white mb-2">Fleet Operations Center</h1>
-                        <p class="text-gray-400 flex items-center space-x-2">
+                        <h1 class="text-3xl font-bold theme-text-primary mb-2">Fleet Operations Center</h1>
+                        <p class="theme-text-muted flex items-center space-x-2">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
@@ -36,7 +36,7 @@ export const renderDispatcherDashboard = (userEmail) => {
                 <!-- Left Column: Map and Routes -->
                 <div class="xl:col-span-2 space-y-6">
                     <!-- Live Fleet Map Section -->
-                    <section class="bg-dark-800 rounded-2xl shadow-2xl p-6 card-hover animate-slide-up" style="animation-delay: 0.2s;">
+                    <section class="theme-card p-6 card-hover animate-slide-up" style="animation-delay: 0.2s;">
                         <div class="flex items-center justify-between mb-6">
                             <div class="flex items-center space-x-3">
                                 <div class="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center">
@@ -45,8 +45,8 @@ export const renderDispatcherDashboard = (userEmail) => {
                                     </svg>
                                 </div>
                                 <div>
-                                    <h2 class="text-xl font-bold text-white">Live Fleet Map</h2>
-                                    <p class="text-sm text-gray-400">Real-time vehicle tracking</p>
+                                    <h2 class="text-xl font-bold theme-text-primary">Live Fleet Map</h2>
+                                    <p class="text-sm theme-text-muted">Real-time vehicle tracking</p>
                                 </div>
                             </div>
                             <div class="flex items-center space-x-2 text-sm text-gray-400">

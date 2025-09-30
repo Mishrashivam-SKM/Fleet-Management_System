@@ -24,40 +24,40 @@ export const openTaskModal = (onSubmit, taskToEdit = null) => {
     };
 
     const modalHtml = `
-        <div id="task-modal-backdrop" class="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50">
-            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-                <h3 class="text-xl font-semibold mb-4">${isEditing ? 'Edit Task' : 'Create New Task'}</h3>
+        <div id="task-modal-backdrop" class="fixed inset-0 backdrop-blur-sm bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="theme-card rounded-lg shadow-2xl p-6 w-full max-w-md mx-4 animate-fade-in">
+                <h3 class="text-xl font-semibold mb-4 theme-text-primary">${isEditing ? 'Edit Task' : 'Create New Task'}</h3>
                 <form id="task-form">
                     <div class="space-y-4">
                         <div>
-                            <label for="customerId" class="block text-sm font-medium text-gray-700">Customer ID / Name</label>
-                            <input type="text" id="customerId" name="customerId" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" value="${taskToEdit?.customerId || ''}">
+                            <label for="customerId" class="block text-sm font-medium theme-text-primary">Customer ID / Name</label>
+                            <input type="text" id="customerId" name="customerId" required class="mt-1 block w-full theme-input rounded-md shadow-sm py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200" value="${taskToEdit?.customerId || ''}">
                         </div>
                         <div>
-                            <label for="demandVolume" class="block text-sm font-medium text-gray-700">Demand Volume</label>
-                            <input type="number" id="demandVolume" name="demandVolume" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" value="${taskToEdit?.demandVolume || ''}">
+                            <label for="demandVolume" class="block text-sm font-medium theme-text-primary">Demand Volume</label>
+                            <input type="number" id="demandVolume" name="demandVolume" required class="mt-1 block w-full theme-input rounded-md shadow-sm py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200" value="${taskToEdit?.demandVolume || ''}">
                         </div>
                          <div>
-                            <label for="deliveryAddress" class="block text-sm font-medium text-gray-700">Delivery Address</label>
-                            <input type="text" id="deliveryAddress" name="deliveryAddress" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" value="${taskToEdit?.deliveryAddress || ''}" placeholder="Enter full address">
-                            <p class="mt-1 text-sm text-gray-500">Enter complete address for accurate delivery location</p>
+                            <label for="deliveryAddress" class="block text-sm font-medium theme-text-primary">Delivery Address</label>
+                            <input type="text" id="deliveryAddress" name="deliveryAddress" required class="mt-1 block w-full theme-input rounded-md shadow-sm py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200" value="${taskToEdit?.deliveryAddress || ''}" placeholder="Enter full address">
+                            <p class="mt-1 text-sm theme-text-muted">Enter complete address for accurate delivery location</p>
                         </div>
                          <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label for="timeWindowStart" class="block text-sm font-medium text-gray-700">Time Window Start</label>
-                                <input type="datetime-local" id="timeWindowStart" name="timeWindowStart" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" value="${toDateTimeLocal(taskToEdit?.timeWindowStart)}">
-                                <p class="mt-1 text-sm text-gray-500">Earliest acceptable delivery time</p>
+                                <label for="timeWindowStart" class="block text-sm font-medium theme-text-primary">Time Window Start</label>
+                                <input type="datetime-local" id="timeWindowStart" name="timeWindowStart" required class="mt-1 block w-full theme-input rounded-md shadow-sm py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200" value="${toDateTimeLocal(taskToEdit?.timeWindowStart)}">
+                                <p class="mt-1 text-sm theme-text-muted">Earliest acceptable delivery time</p>
                             </div>
                             <div>
-                                <label for="timeWindowEnd" class="block text-sm font-medium text-gray-700">Time Window End (Deadline)</label>
-                                <input type="datetime-local" id="timeWindowEnd" name="timeWindowEnd" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" value="${toDateTimeLocal(taskToEdit?.timeWindowEnd)}">
-                                <p class="mt-1 text-sm text-gray-500">⚠️ Latest acceptable delivery time (deadline)</p>
+                                <label for="timeWindowEnd" class="block text-sm font-medium theme-text-primary">Time Window End (Deadline)</label>
+                                <input type="datetime-local" id="timeWindowEnd" name="timeWindowEnd" required class="mt-1 block w-full theme-input rounded-md shadow-sm py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200" value="${toDateTimeLocal(taskToEdit?.timeWindowEnd)}">
+                                <p class="mt-1 text-sm theme-text-muted">⚠️ Latest acceptable delivery time (deadline)</p>
                             </div>
                         </div>
                     </div>
                     <div class="mt-6 flex justify-end space-x-3">
-                        <button type="button" id="cancel-task-modal" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">${isEditing ? 'Save Changes' : 'Create Task'}</button>
+                        <button type="button" id="cancel-task-modal" class="px-4 py-2 rounded-md theme-btn-secondary hover:scale-105 transition-all duration-200">Cancel</button>
+                        <button type="submit" class="px-4 py-2 rounded-md bg-primary-600 hover:bg-primary-700 text-white font-medium hover:scale-105 transition-all duration-200 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">${isEditing ? 'Save Changes' : 'Create Task'}</button>
                     </div>
                 </form>
             </div>

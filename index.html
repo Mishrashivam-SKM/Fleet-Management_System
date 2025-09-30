@@ -83,27 +83,51 @@
         }
     </script>
     <style>
-        /* Global Styles */
+        /* === WORLD-CLASS THEME SYSTEM === */
         :root {
+            /* Primary Brand Colors */
             --primary-teal: #14b8a6;
             --primary-teal-hover: #0d9488;
             --primary-teal-light: #2dd4bf;
+            
+            /* Dark Theme Colors */
             --dark-bg: #0f172a;
             --dark-card: #1e293b;
             --dark-border: #334155;
+            --dark-text: #f8fafc;
+            --dark-text-muted: #94a3b8;
+            
+            /* Light Theme Colors - HIGH CONTRAST */
+            --light-bg: #ffffff;
+            --light-card: #f8fafc;
+            --light-border: #e2e8f0;
+            --light-text: #1f2937;
+            --light-text-muted: #6b7280;
         }
 
-        html.dark {
-            color-scheme: dark;
+        /* Theme Base Classes */
+        body.dark {
+            background: var(--dark-bg);
+            color: var(--dark-text);
         }
 
+        body.light {
+            background: var(--light-bg);
+            color: var(--light-text);
+        }
+
+        /* Dynamic App Background */
         .app-bg {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
             min-height: 100vh;
+            transition: all 0.3s ease;
         }
 
-        .app-bg.light {
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+        body.dark .app-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+        }
+
+        body.light .app-bg {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
         }
 
         /* Map Styles */
@@ -158,35 +182,167 @@
             box-shadow: 0 10px 15px -3px rgba(20, 184, 166, 0.3);
         }
 
-        /* Theme Toggle Styles */
-        .theme-toggle {
-            position: relative;
-            width: 60px;
-            height: 30px;
-            border-radius: 15px;
-            background: #334155;
+        /* === UNIFIED THEME-AWARE COMPONENTS === */
+        
+        /* Cards & Containers */
+        .theme-card {
+            transition: all 0.3s ease;
+            border-radius: 0.75rem;
+        }
+
+        body.dark .theme-card {
+            background: var(--dark-card);
+            border: 1px solid var(--dark-border);
+            color: var(--dark-text);
+        }
+
+        body.light .theme-card {
+            background: var(--light-card);
+            border: 1px solid var(--light-border);
+            color: var(--light-text);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Navigation Bars */
+        .theme-nav {
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        body.dark .theme-nav {
+            background: rgba(15, 23, 42, 0.95);
+            border-color: var(--dark-border);
+        }
+
+        body.light .theme-nav {
+            background: rgba(248, 250, 252, 0.95);
+            border-color: var(--light-border);
+        }
+
+        /* Text Elements */
+        .theme-text-primary {
+            transition: color 0.3s ease;
+        }
+
+        body.dark .theme-text-primary {
+            color: var(--dark-text);
+        }
+
+        body.light .theme-text-primary {
+            color: var(--light-text);
+        }
+
+        .theme-text-muted {
+            transition: color 0.3s ease;
+        }
+
+        body.dark .theme-text-muted {
+            color: var(--dark-text-muted);
+        }
+
+        body.light .theme-text-muted {
+            color: var(--light-text-muted);
+        }
+
+        /* Unified Theme Toggle Button */
+        .unified-theme-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 0.5rem;
+            transition: all 0.2s ease;
             cursor: pointer;
+        }
+
+        body.dark .unified-theme-toggle {
+            background: var(--dark-card);
+            color: var(--dark-text-muted);
+            border: 1px solid var(--dark-border);
+        }
+
+        body.dark .unified-theme-toggle:hover {
+            background: var(--dark-border);
+            color: var(--dark-text);
+        }
+
+        body.light .unified-theme-toggle {
+            background: var(--light-card);
+            color: var(--light-text-muted);
+            border: 1px solid var(--light-border);
+        }
+
+        body.light .unified-theme-toggle:hover {
+            background: var(--light-border);
+            color: var(--light-text);
+        }
+
+        /* Form Input Elements */
+        .theme-input {
             transition: all 0.3s ease;
+            border-radius: 0.5rem;
         }
 
-        .theme-toggle.light {
-            background: #e2e8f0;
+        body.dark .theme-input {
+            background: var(--dark-card);
+            border: 1px solid var(--dark-border);
+            color: var(--dark-text);
         }
 
-        .theme-toggle-slider {
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: white;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        body.dark .theme-input:focus {
+            border-color: var(--primary-teal);
+            background: var(--dark-bg);
         }
 
-        .theme-toggle.dark .theme-toggle-slider {
-            transform: translateX(30px);
+        body.dark .theme-input::placeholder {
+            color: var(--dark-text-muted);
+        }
+
+        body.light .theme-input {
+            background: var(--light-bg);
+            border: 1px solid var(--light-border);
+            color: var(--light-text);
+        }
+
+        body.light .theme-input:focus {
+            border-color: var(--primary-teal);
+            background: var(--light-card);
+        }
+
+        body.light .theme-input::placeholder {
+            color: var(--light-text-muted);
+        }
+
+        /* Secondary Button Style */
+        .theme-btn-secondary {
+            transition: all 0.2s ease;
+            border-radius: 0.5rem;
+            font-weight: 500;
+        }
+
+        body.dark .theme-btn-secondary {
+            background: var(--dark-card);
+            color: var(--dark-text);
+            border: 1px solid var(--dark-border);
+        }
+
+        body.dark .theme-btn-secondary:hover {
+            background: var(--dark-border);
+            color: var(--dark-text);
+            transform: translateY(-1px);
+        }
+
+        body.light .theme-btn-secondary {
+            background: var(--light-card);
+            color: var(--light-text);
+            border: 1px solid var(--light-border);
+        }
+
+        body.light .theme-btn-secondary:hover {
+            background: var(--light-border);
+            color: var(--light-text);
+            transform: translateY(-1px);
         }
 
         /* Loading States */
@@ -288,12 +444,58 @@
             outline-offset: 2px;
         }
 
+        /* Primary Color Background Utilities */
+        .bg-primary-100 {
+            background-color: #ccfbf1;
+        }
+
+        body.dark .bg-primary-100 {
+            background-color: rgba(20, 184, 166, 0.1);
+        }
+
+        body.light .bg-primary-100 {
+            background-color: #ccfbf1;
+        }
+
         /* Light theme overrides */
+        /* Tech Stack Badge */
         .light .app-bg {
             background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
         }
 
-        .light .bg-dark-950 {
+        /* Footer theme support */
+        .theme-border-color {
+            transition: border-color 0.3s ease;
+        }
+
+        body.dark .theme-border-color {
+            border-color: var(--dark-border);
+        }
+
+        body.light .theme-border-color {
+            border-color: var(--light-border);
+        }
+
+        /* Footer link animations */
+        footer a {
+            position: relative;
+            overflow: hidden;
+        }
+
+        footer a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: var(--primary-teal);
+            transition: width 0.3s ease;
+        }
+
+        footer a:hover::after {
+            width: 100%;
+        }        .light .bg-dark-950 {
             background-color: #f8fafc !important;
         }
 
@@ -327,19 +529,12 @@
         }
     </style>
 </head>
-<body class="h-full font-sans text-gray-100 app-bg dark transition-colors duration-300">
-    <!-- Theme Toggle -->
-    <div class="fixed top-4 right-4 z-50">
-        <div id="theme-toggle" class="theme-toggle dark" title="Toggle theme">
-            <div class="theme-toggle-slider">
-                <span class="text-xs">🌙</span>
-            </div>
-        </div>
-    </div>
-
+<body class="h-full font-sans app-bg dark transition-all duration-300">
     <div id="app-container" class="min-h-full">
-        <!-- Login Container -->
-        <div id="login-container" class="relative min-h-screen flex items-center justify-center p-4">
+        <!-- This will be populated by JavaScript based on auth state -->
+        
+        <!-- Login Container - Initially Hidden -->
+        <div id="login-container" class="relative min-h-screen flex items-center justify-center p-4 hidden">
             <!-- Animated Background -->
             <div class="absolute inset-0 overflow-hidden pointer-events-none">
                 <div class="absolute -top-40 -right-40 w-80 h-80 bg-primary-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-soft"></div>
@@ -355,16 +550,16 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                     </div>
-                    <h1 class="text-3xl font-bold text-white mb-2">Fleet Command</h1>
-                    <p class="text-gray-400 font-medium">Advanced Fleet Management Platform</p>
+                    <h1 class="text-3xl font-bold theme-text-primary mb-2">Fleet Command</h1>
+                    <p class="theme-text-muted font-medium">Advanced Fleet Management Platform</p>
                 </div>
 
                 <!-- Login Form Card -->
-                <div class="glass-effect rounded-2xl p-8 shadow-2xl">
+                <div class="theme-card p-8 shadow-2xl">
                     <form id="login-form" class="space-y-6">
                         <div class="space-y-4">
                             <div class="animate-slide-up" style="animation-delay: 0.1s;">
-                                <label for="email" class="block text-sm font-semibold text-gray-300 mb-2">Email Address</label>
+                                <label for="email" class="block text-sm font-semibold theme-text-muted mb-2">Email Address</label>
                                 <input 
                                     id="email" 
                                     name="email" 
@@ -372,7 +567,7 @@
                                     autocomplete="email" 
                                     required 
                                     placeholder="Enter your email"
-                                    class="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
+                                    class="w-full px-4 py-3 theme-card border theme-text-primary placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 rounded-xl"
                                 >
                             </div>
 
@@ -417,25 +612,6 @@
                             </div>
                         </div>
                     </form>
-
-                    <!-- Demo Credentials -->
-                    <div class="mt-6 p-4 bg-dark-800/50 rounded-xl animate-slide-up" style="animation-delay: 0.4s;">
-                        <h3 class="text-sm font-semibold text-gray-300 mb-2">Demo Credentials:</h3>
-                        <div class="space-y-1 text-xs text-gray-400">
-                            <div class="flex justify-between">
-                                <span>Dispatcher:</span>
-                                <span class="text-primary-400">dispatcher@example.com</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Driver:</span>
-                                <span class="text-primary-400">priya@example.com</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Password:</span>
-                                <span class="text-primary-400">password123</span>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Footer -->
