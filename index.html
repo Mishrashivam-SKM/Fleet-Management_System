@@ -1,68 +1,454 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-gray-100">
+<html lang="en" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fleet Management & Optimization</title>
+    <title>Fleet Command - Advanced Fleet Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Leaflet CSS for mapping -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <style>
-        /* Ensure map container has a defined height */
-        #map-container { height: 400px; }
-        .leaflet-container {
-            border-radius: 0.5rem;
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif']
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            200: '#99f6e4',
+                            300: '#5eead4',
+                            400: '#2dd4bf',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                            900: '#134e4a',
+                            950: '#042f2e'
+                        },
+                        dark: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617'
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-in-out',
+                        'slide-up': 'slideUp 0.4s ease-out',
+                        'slide-down': 'slideDown 0.3s ease-in-out',
+                        'scale-in': 'scaleIn 0.2s ease-out',
+                        'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate'
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' }
+                        },
+                        slideDown: {
+                            '0%': { transform: 'translateY(-10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' }
+                        },
+                        scaleIn: {
+                            '0%': { transform: 'scale(0.95)', opacity: '0' },
+                            '100%': { transform: 'scale(1)', opacity: '1' }
+                        },
+                        pulseSoft: {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '0.7' }
+                        },
+                        glow: {
+                            '0%': { boxShadow: '0 0 5px rgba(20, 184, 166, 0.2)' },
+                            '100%': { boxShadow: '0 0 20px rgba(20, 184, 166, 0.4), 0 0 30px rgba(20, 184, 166, 0.2)' }
+                        }
+                    }
+                }
+            }
         }
-        /* FIX 1: This rule contains the map's layering */
+    </script>
+    <style>
+        /* Global Styles */
+        :root {
+            --primary-teal: #14b8a6;
+            --primary-teal-hover: #0d9488;
+            --primary-teal-light: #2dd4bf;
+            --dark-bg: #0f172a;
+            --dark-card: #1e293b;
+            --dark-border: #334155;
+        }
+
+        html.dark {
+            color-scheme: dark;
+        }
+
+        .app-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            min-height: 100vh;
+        }
+
+        .app-bg.light {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+        }
+
+        /* Map Styles */
+        #map-container, #driver-map-container { 
+            height: 400px; 
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .leaflet-container {
+            border-radius: 0.75rem;
+        }
+        
         .leaflet-pane {
             z-index: 10 !important;
         }
-        /* FIX 2: This rule ensures the modal container is always on top */
+        
         #modal-root {
             position: relative;
             z-index: 1000;
         }
+
+        /* Custom Animations */
+        .glass-effect {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .dark .glass-effect {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(51, 65, 85, 0.3);
+        }
+
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-teal) 0%, var(--primary-teal-light) 100%);
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--primary-teal-hover) 0%, var(--primary-teal) 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 15px -3px rgba(20, 184, 166, 0.3);
+        }
+
+        /* Theme Toggle Styles */
+        .theme-toggle {
+            position: relative;
+            width: 60px;
+            height: 30px;
+            border-radius: 15px;
+            background: #334155;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle.light {
+            background: #e2e8f0;
+        }
+
+        .theme-toggle-slider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: white;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .theme-toggle.dark .theme-toggle-slider {
+            transform: translateX(30px);
+        }
+
+        /* Loading States */
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Custom Scrollbars */
+        .scrollbar-thin {
+            scrollbar-width: thin;
+        }
+        
+        .scrollbar-track-dark-700::-webkit-scrollbar-track {
+            background-color: #374151;
+            border-radius: 0.5rem;
+        }
+        
+        .scrollbar-thumb-dark-600::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+            border-radius: 0.5rem;
+        }
+        
+        .scrollbar-thumb-dark-600::-webkit-scrollbar-thumb:hover {
+            background-color: #6b7280;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        /* Enhanced Button States */
+        .btn-loading {
+            position: relative;
+            pointer-events: none;
+        }
+
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Notification Animations */
+        .notification-enter {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+
+        .notification-enter-active {
+            transform: translateX(0);
+            opacity: 1;
+            transition: all 0.3s ease-out;
+        }
+
+        .notification-exit {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .notification-exit-active {
+            transform: translateX(100%);
+            opacity: 0;
+            transition: all 0.3s ease-in;
+        }
+
+        /* Responsive Improvements */
+        @media (max-width: 768px) {
+            .mobile-padding {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            
+            .mobile-text-sm {
+                font-size: 0.875rem;
+            }
+            
+            .mobile-space-compact .space-y-6 > * + * {
+                margin-top: 1rem;
+            }
+        }
+
+        /* Focus States */
+        .focus-primary:focus {
+            outline: 2px solid var(--primary-teal);
+            outline-offset: 2px;
+        }
+
+        /* Light theme overrides */
+        .light .app-bg {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%);
+        }
+
+        .light .bg-dark-950 {
+            background-color: #f8fafc !important;
+        }
+
+        .light .bg-dark-900 {
+            background-color: #f1f5f9 !important;
+        }
+
+        .light .bg-dark-800 {
+            background-color: #ffffff !important;
+            border: 1px solid #e2e8f0;
+        }
+
+        .light .text-white {
+            color: #0f172a !important;
+        }
+
+        .light .text-gray-400 {
+            color: #64748b !important;
+        }
+
+        .light .text-gray-300 {
+            color: #475569 !important;
+        }
+
+        .light .border-dark-700 {
+            border-color: #e2e8f0 !important;
+        }
+
+        .light .border-dark-600 {
+            border-color: #cbd5e1 !important;
+        }
     </style>
 </head>
-<body class="h-full font-sans text-gray-800">
+<body class="h-full font-sans text-gray-100 app-bg dark transition-colors duration-300">
+    <!-- Theme Toggle -->
+    <div class="fixed top-4 right-4 z-50">
+        <div id="theme-toggle" class="theme-toggle dark" title="Toggle theme">
+            <div class="theme-toggle-slider">
+                <span class="text-xs">🌙</span>
+            </div>
+        </div>
+    </div>
+
     <div id="app-container" class="min-h-full">
-        <!-- Login Form Container (Initially Visible) -->
-        <div id="login-container" class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
-            <div class="sm:mx-auto sm:w-full sm:max-w-sm">
-                <svg class="mx-auto h-10 w-auto text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-17.25 4.5v-1.875a3.375 3.375 0 003.375-3.375h1.5a1.125 1.125 0 011.125 1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375m15.75 0v-1.5c0-.621-.504-1.125-1.125-1.125h-1.5a3.375 3.375 0 00-3.375 3.375V18.75m-3.375-12.75h9.75a1.125 1.125 0 011.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-9.75A1.125 1.125 0 013 17.25V7.125c0-.621.504-1.125 1.125-1.125z" />
-                </svg>
-                <h2 class="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">Sign in to your account</h2>
+        <!-- Login Container -->
+        <div id="login-container" class="relative min-h-screen flex items-center justify-center p-4">
+            <!-- Animated Background -->
+            <div class="absolute inset-0 overflow-hidden pointer-events-none">
+                <div class="absolute -top-40 -right-40 w-80 h-80 bg-primary-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-soft"></div>
+                <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-primary-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-soft" style="animation-delay: 1s;"></div>
             </div>
 
-            <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-                <form id="login-form" class="space-y-6">
-                    <div>
-                        <label for="email" class="block text-sm font-medium leading-6 text-gray-900">Email address</label>
-                        <div class="mt-2">
-                            <input id="email" name="email" type="email" autocomplete="email" required class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                        </div>
+            <!-- Login Card -->
+            <div class="relative w-full max-w-md animate-slide-up">
+                <!-- Logo and Header -->
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center justify-center w-16 h-16 mb-6 bg-gradient-to-r from-primary-500 to-primary-400 rounded-2xl shadow-lg animate-glow">
+                        <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
                     </div>
+                    <h1 class="text-3xl font-bold text-white mb-2">Fleet Command</h1>
+                    <p class="text-gray-400 font-medium">Advanced Fleet Management Platform</p>
+                </div>
 
-                    <div>
-                        <div class="flex items-center justify-between">
-                            <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Password</label>
-                        </div>
-                        <div class="mt-2">
-                            <input id="password" name="password" type="password" autocomplete="current-password" required class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                        </div>
-                    </div>
+                <!-- Login Form Card -->
+                <div class="glass-effect rounded-2xl p-8 shadow-2xl">
+                    <form id="login-form" class="space-y-6">
+                        <div class="space-y-4">
+                            <div class="animate-slide-up" style="animation-delay: 0.1s;">
+                                <label for="email" class="block text-sm font-semibold text-gray-300 mb-2">Email Address</label>
+                                <input 
+                                    id="email" 
+                                    name="email" 
+                                    type="email" 
+                                    autocomplete="email" 
+                                    required 
+                                    placeholder="Enter your email"
+                                    class="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
+                                >
+                            </div>
 
-                    <div>
-                        <button type="submit" class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Sign in</button>
+                            <div class="animate-slide-up" style="animation-delay: 0.2s;">
+                                <label for="password" class="block text-sm font-semibold text-gray-300 mb-2">Password</label>
+                                <input 
+                                    id="password" 
+                                    name="password" 
+                                    type="password" 
+                                    autocomplete="current-password" 
+                                    required 
+                                    placeholder="Enter your password"
+                                    class="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200"
+                                >
+                            </div>
+                        </div>
+
+                        <div class="animate-slide-up" style="animation-delay: 0.3s;">
+                            <button 
+                                type="submit" 
+                                id="login-btn"
+                                class="btn-primary w-full py-3 px-4 text-white font-semibold rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-dark-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <span class="flex items-center justify-center">
+                                    <span id="login-text">Sign In</span>
+                                    <svg id="login-spinner" class="animate-spin -mr-1 ml-3 h-4 w-4 text-white hidden" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </span>
+                            </button>
+                        </div>
+
+                        <div id="auth-error" class="hidden animate-slide-down">
+                            <div class="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                                <div class="flex items-center">
+                                    <svg class="w-5 h-5 text-red-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <p id="auth-error-text" class="text-sm text-red-400"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Demo Credentials -->
+                    <div class="mt-6 p-4 bg-dark-800/50 rounded-xl animate-slide-up" style="animation-delay: 0.4s;">
+                        <h3 class="text-sm font-semibold text-gray-300 mb-2">Demo Credentials:</h3>
+                        <div class="space-y-1 text-xs text-gray-400">
+                            <div class="flex justify-between">
+                                <span>Dispatcher:</span>
+                                <span class="text-primary-400">dispatcher@example.com</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Driver:</span>
+                                <span class="text-primary-400">priya@example.com</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Password:</span>
+                                <span class="text-primary-400">password123</span>
+                            </div>
+                        </div>
                     </div>
-                </form>
-                 <p id="auth-error" class="mt-4 text-center text-sm text-red-500 hidden"></p>
+                </div>
+
+                <!-- Footer -->
+                <div class="text-center mt-8 animate-slide-up" style="animation-delay: 0.5s;">
+                    <p class="text-gray-500 text-sm">
+                        Secure • Real-time • Intelligent
+                    </p>
+                </div>
             </div>
         </div>
 
-        <!-- Main Application Root (Dynamically Populated) -->
-        <div id="app-root" class="hidden">
+        <!-- Main Application Root -->
+        <div id="app-root" class="hidden animate-fade-in">
             <!-- Dashboards will be rendered here by app.js -->
         </div>
     </div>

@@ -1,6 +1,6 @@
 /**
- * @file This is the main controller for the application.
- * It has been corrected to pass the user's email to the dashboard and to target the correct element IDs.
+ * @file Main application controller with enhanced UI/UX integration
+ * Features premium SaaS aesthetic with theme support and animations
  */
 import { 
     getFirestore, 
@@ -34,6 +34,8 @@ import { initializeFirestore } from './api/setupFirestore.js';
 import { initializeMap, updateVehicleMarkers, initializeDriverMap, showDriverRoute } from './components/mapView.js';
 import { renderDispatcherDashboard } from './components/dispatcherDashboard.js';
 import { renderDriverDashboard } from './components/driverDashboard.js';
+import { renderDashboardLayout, initializeDashboardLayout, showLoadingOverlay, hideLoadingOverlay } from './components/DashboardLayout.js';
+import { renderDriverLayout, initializeDriverLayout, updateLocationStatus } from './components/DriverLayout.js';
 import { openTaskModal } from './components/TaskFormModal.js';
 import { openVehicleModal } from './components/VehicleFormModal.js';
 import { renderOptimizedRoutes } from './components/RoutesView.js';
@@ -79,34 +81,49 @@ const main = async () => {
         }
     }
 
-    // Handle login form submission
+    // Initialize theme
+    initializeTheme();
+    
+    // Initialize theme toggle
+    initializeThemeToggle();
+
+    // Handle login form submission with enhanced UX
     const loginForm = document.getElementById('login-form');
     const errorEl = document.getElementById('auth-error');
+    const loginBtn = document.getElementById('login-btn');
+    const loginText = document.getElementById('login-text');
+    const loginSpinner = document.getElementById('login-spinner');
 
     loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault(); // Prevent form submission
-        const email = e.target.elements.email.value;
-        const password = e.target.elements.password.value;
-        const submitButton = e.target.querySelector('button[type="submit"]');
+        e.preventDefault();
         
-        // Clear previous error
+        const formData = new FormData(loginForm);
+        const email = formData.get('email');
+        const password = formData.get('password');
+        
+        // Clear previous errors
         errorEl.classList.add('hidden');
         
-        // Disable button during login
-        submitButton.disabled = true;
-        submitButton.textContent = 'Signing in...';
+        // Show loading state
+        loginBtn.disabled = true;
+        loginText.textContent = 'Signing in...';
+        loginSpinner.classList.remove('hidden');
         
         try {
             await handleAuth(email, password);
             console.log('Login successful:', email);
         } catch (error) {
             console.error("Authentication failed:", error);
-            errorEl.textContent = "Login failed. Please check your credentials.";
+            
+            // Show error with animation
+            const errorTextEl = document.getElementById('auth-error-text');
+            errorTextEl.textContent = "Login failed. Please check your credentials.";
             errorEl.classList.remove('hidden');
             
-            // Re-enable button on error
-            submitButton.disabled = false;
-            submitButton.textContent = 'Sign in';
+            // Reset button state
+            loginBtn.disabled = false;
+            loginText.textContent = 'Sign In';
+            loginSpinner.classList.add('hidden');
         }
     });
 
@@ -118,18 +135,24 @@ const main = async () => {
         appRoot.innerHTML = '';
 
         if (user) {
+            // Hide login and show app with transition
             loginContainer.classList.add('hidden');
             appRoot.classList.remove('hidden');
             
-            // Pass the user's email to the appropriate dashboard renderer
+            // Determine user role and render appropriate dashboard
             if (user.email === 'dispatcher@example.com') {
-                appRoot.innerHTML = renderDispatcherDashboard(user.email);
+                const dashboardContent = renderDispatcherDashboard(user.email);
+                appRoot.innerHTML = renderDashboardLayout(user.email, dashboardContent);
+                initializeDashboardLayout(signOutUser);
                 setupDispatcherDashboard();
             } else {
-                appRoot.innerHTML = renderDriverDashboard(user.email);
+                const dashboardContent = renderDriverDashboard(user.email);
+                appRoot.innerHTML = renderDriverLayout(user.email, dashboardContent);
+                initializeDriverLayout(signOutUser, handleLocationToggle);
                 setupDriverDashboard(user.email);
             }
         } else {
+            // Show login and hide app
             loginContainer.classList.remove('hidden');
             appRoot.classList.add('hidden');
         }
@@ -732,15 +755,36 @@ const handleDeleteVehicle = async (e) => {
 
 const handleOptimization = async () => {
     const statusEl = document.getElementById('optimization-status');
+    const indicatorEl = document.getElementById('optimization-indicator');
+    const optimizeBtn = document.getElementById('optimize-routes-btn');
+    
     if (!statusEl) return;
+    
+    // Show loading state
     statusEl.textContent = 'Fetching data...';
+    if (indicatorEl) {
+        indicatorEl.classList.remove('hidden', 'bg-gray-500');
+        indicatorEl.classList.add('bg-blue-400');
+    }
+    
+    if (optimizeBtn) {
+        optimizeBtn.disabled = true;
+        optimizeBtn.innerHTML = `
+            <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Processing...</span>
+        `;
+    }
+    
     try {
         const tasks = await fetchTasksForOptimization();
         
-        // Correctly get a promise of vehicles
+        // Get vehicles data
         let vehiclesPromise = new Promise(resolve => {
             const unsubscribe = fetchLiveVehicles(v => {
-                unsubscribe(); // Stop listening once we have the data
+                unsubscribe();
                 resolve(v);
             });
         });
@@ -750,32 +794,60 @@ const handleOptimization = async () => {
         if (tasks.length === 0 || vehicles.length === 0) {
             statusEl.textContent = "Not enough data to optimize.";
             renderOptimizedRoutes([]);
+            showNotification('Add tasks and vehicles before optimizing routes', 'warning');
             return;
         }
 
-        statusEl.textContent = 'Optimizing routes...';
+        statusEl.textContent = `Optimizing ${tasks.length} tasks for ${vehicles.length} vehicles...`;
         const result = await optimizeRouteHandler(tasks, vehicles);
         const routes = result.routes || [];
+        
         console.log('📊 Optimization completed:', { routes, vehicles });
         renderOptimizedRoutes(routes);
         
-        console.log('💾 Saving routes to Firebase...');
+        statusEl.textContent = 'Saving optimized routes...';
         await saveOptimizedRoutesAsTripLogs(routes, vehicles);
-        console.log('✅ Routes saved to Firebase successfully');
         
         // Update vehicle status for assigned routes
+        let assignedVehicles = 0;
         for (const route of routes) {
             const jobSteps = route.steps.filter(step => step.type === 'job');
             if (jobSteps.length > 0) {
                 await updateVehicleStatus(route.vehicle, 'assigned');
+                assignedVehicles++;
             }
         }
         
-        statusEl.textContent = 'Optimization complete. Routes assigned to drivers.';
+        statusEl.textContent = `✅ ${routes.length} routes optimized, ${assignedVehicles} vehicles assigned`;
+        
+        if (indicatorEl) {
+            indicatorEl.classList.remove('bg-blue-400');
+            indicatorEl.classList.add('bg-green-400');
+        }
+        
+        showNotification(`Successfully optimized ${routes.length} routes for delivery`, 'success');
 
     } catch (error) {
         console.error("Optimization failed:", error);
-        statusEl.textContent = 'Optimization failed. See console.';
+        statusEl.textContent = '❌ Optimization failed - check console for details';
+        
+        if (indicatorEl) {
+            indicatorEl.classList.remove('bg-blue-400');
+            indicatorEl.classList.add('bg-red-400');
+        }
+        
+        showNotification('Route optimization failed. Please try again.', 'error');
+    } finally {
+        // Reset button state
+        if (optimizeBtn) {
+            optimizeBtn.disabled = false;
+            optimizeBtn.innerHTML = `
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Optimize Routes</span>
+            `;
+        }
     }
 };
 
@@ -895,6 +967,108 @@ window.updateKPIDisplay = (kpis) => {
     renderReports(kpis);
     console.log('📊 KPI display updated:', kpis);
 };
+
+// --- Theme Management ---
+const initializeTheme = () => {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    const body = document.body;
+    
+    if (savedTheme === 'light') {
+        body.classList.remove('dark');
+        body.classList.add('light');
+    } else {
+        body.classList.remove('light');
+        body.classList.add('dark');
+    }
+    
+    updateThemeToggle(savedTheme === 'dark');
+};
+
+const initializeThemeToggle = () => {
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
+    }
+};
+
+const toggleTheme = () => {
+    const body = document.body;
+    const themeToggle = document.getElementById('theme-toggle');
+    const isDark = body.classList.contains('dark');
+    
+    if (isDark) {
+        body.classList.remove('dark');
+        body.classList.add('light');
+        localStorage.setItem('theme', 'light');
+        updateThemeToggle(false);
+    } else {
+        body.classList.remove('light');
+        body.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+        updateThemeToggle(true);
+    }
+};
+
+const updateThemeToggle = (isDark) => {
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+        if (isDark) {
+            themeToggle.classList.add('dark');
+            themeToggle.classList.remove('light');
+            themeToggle.querySelector('span').textContent = '🌙';
+        } else {
+            themeToggle.classList.add('light');
+            themeToggle.classList.remove('dark');
+            themeToggle.querySelector('span').textContent = '☀️';
+        }
+    }
+};
+
+// --- Driver Location Toggle Handler ---
+const handleLocationToggle = () => {
+    const toggleBtn = document.getElementById('toggle-location-btn');
+    if (toggleBtn) {
+        toggleBtn.click(); // Trigger the existing location toggle logic
+    }
+};
+
+// --- Enhanced UI Utilities ---
+const showNotification = (message, type = 'success') => {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-xl shadow-lg animate-slide-down ${
+        type === 'success' ? 'bg-green-600' : 
+        type === 'error' ? 'bg-red-600' : 
+        type === 'warning' ? 'bg-yellow-600' : 'bg-blue-600'
+    } text-white`;
+    
+    notification.innerHTML = `
+        <div class="flex items-center space-x-3">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                ${type === 'success' ? 
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />' :
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />'
+                }
+            </svg>
+            <span class="font-medium">${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Remove notification after 3 seconds
+    setTimeout(() => {
+        notification.classList.add('animate-slide-up');
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+};
+
+// Make notification function globally available
+window.showNotification = showNotification;
 
 // --- App Entry Point ---
 document.addEventListener('DOMContentLoaded', main);
