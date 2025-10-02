@@ -9,6 +9,7 @@
  * @returns {string} HTML string for the landing page
  */
 import { renderFooter, initializeFooter } from './Footer.js';
+import { themeManager } from '../utils/themeManager.js';
 
 export const renderLandingView = (onGetStarted) => {
     return `
@@ -261,14 +262,8 @@ export const initializeLandingView = (onGetStarted) => {
         });
     }
 
-    // Handle theme toggle
-    const landingThemeToggle = document.getElementById('landing-theme-toggle');
-    if (landingThemeToggle) {
-        landingThemeToggle.addEventListener('click', toggleLandingTheme);
-        
-        // Initialize theme icon based on current theme
-        updateLandingThemeIcon();
-    }
+    // Handle theme toggle with unified theme manager
+    themeManager.initialize();
 
     // Initialize smooth scrolling for any internal links
     document.documentElement.style.scrollBehavior = 'smooth';
@@ -279,57 +274,4 @@ export const initializeLandingView = (onGetStarted) => {
     console.log('✅ Landing View initialized successfully');
 };
 
-/**
- * Toggle theme specifically for landing page
- */
-function toggleLandingTheme() {
-    const body = document.body;
-    const landingThemeToggle = document.getElementById('landing-theme-toggle');
-    
-    if (body.classList.contains('dark')) {
-        // Switch to Light Mode
-        body.classList.remove('dark');
-        body.classList.add('light');
-        localStorage.setItem('theme', 'light');
-    } else {
-        // Switch to Dark Mode
-        body.classList.remove('light');
-        body.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-    }
-    
-    updateLandingThemeIcon();
-    
-    // Trigger theme update event for consistency
-    window.dispatchEvent(new CustomEvent('themeChanged', { 
-        detail: { theme: body.classList.contains('dark') ? 'dark' : 'light' } 
-    }));
-}
-
-/**
- * Update the theme toggle icon based on current theme
- */
-function updateLandingThemeIcon() {
-    const body = document.body;
-    const landingThemeToggle = document.getElementById('landing-theme-toggle');
-    
-    if (!landingThemeToggle) return;
-    
-    if (body.classList.contains('dark')) {
-        // Dark mode - show moon icon
-        landingThemeToggle.innerHTML = `
-            <svg class="w-5 h-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-            </svg>
-        `;
-        landingThemeToggle.title = 'Switch to Light Mode';
-    } else {
-        // Light mode - show sun icon
-        landingThemeToggle.innerHTML = `
-            <svg class="w-5 h-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-        `;
-        landingThemeToggle.title = 'Switch to Dark Mode';
-    }
-}
+// Theme functionality now handled by unified ThemeManager

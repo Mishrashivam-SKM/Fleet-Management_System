@@ -150,10 +150,8 @@ export const initializeDriverLayout = (onSignOut, onLocationToggle) => {
     }
 
     // Handle theme toggle
-    const navThemeToggle = document.getElementById('nav-theme-toggle');
-    if (navThemeToggle) {
-        navThemeToggle.addEventListener('click', toggleTheme);
-    }
+    // Theme toggle handled by unified theme manager
+    themeManager.initialize();
 
     // Initialize location status synchronization
     initializeLocationStatusSync();
@@ -259,51 +257,5 @@ export const hideLoadingOverlay = () => {
     }
 };
 
-/**
- * UNIFIED Theme Toggle - Single Source of Truth
- */
-function toggleTheme() {
-    const body = document.body;
-    const navThemeToggle = document.getElementById('nav-theme-toggle');
-    
-    if (body.classList.contains('dark')) {
-        // Switch to Light Mode
-        body.classList.remove('dark');
-        body.classList.add('light');
-        
-        // Update icon to sun (indicating current light mode)
-        if (navThemeToggle) {
-            navThemeToggle.innerHTML = `
-                <svg class="w-5 h-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-            `;
-            navThemeToggle.title = 'Switch to Dark Mode';
-        }
-        
-        localStorage.setItem('theme', 'light');
-        console.log('🌞 Driver Layout: Switched to Light Mode');
-    } else {
-        // Switch to Dark Mode
-        body.classList.remove('light');
-        body.classList.add('dark');
-        
-        // Update icon to moon (indicating current dark mode)
-        if (navThemeToggle) {
-            navThemeToggle.innerHTML = `
-                <svg class="w-5 h-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-            `;
-            navThemeToggle.title = 'Switch to Light Mode';
-        }
-        
-        localStorage.setItem('theme', 'dark');
-        console.log('🌙 Driver Layout: Switched to Dark Mode');
-    }
-    
-    // Trigger theme update event for other components
-    window.dispatchEvent(new CustomEvent('themeChanged', { 
-        detail: { theme: body.classList.contains('dark') ? 'dark' : 'light' } 
-    }));
-}
+// Import unified theme manager
+import { themeManager } from '../utils/themeManager.js';

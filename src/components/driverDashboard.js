@@ -4,8 +4,8 @@ export const renderDriverDashboard = (userEmail) => {
             <!-- Header Section -->
             <div class="mb-8">
                 <div class="animate-slide-up">
-                    <h1 class="text-3xl font-bold text-white mb-2">Driver Navigation Center</h1>
-                    <p class="text-gray-400 flex items-center space-x-2">
+                    <h1 class="text-3xl font-bold theme-text-primary mb-2">Driver Navigation Center</h1>
+                    <p class="theme-text-muted flex items-center space-x-2">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -20,7 +20,7 @@ export const renderDriverDashboard = (userEmail) => {
                 <!-- Left Column: Route Map and Navigation -->
                 <div class="lg:col-span-2 space-y-6">
                     <!-- Route Navigation Section -->
-                    <section class="bg-dark-800 rounded-2xl shadow-2xl p-6 card-hover animate-slide-up" style="animation-delay: 0.2s;">
+                    <section class="theme-card p-6 card-hover animate-slide-up" style="animation-delay: 0.2s;">
                         <div class="flex items-center justify-between mb-6">
                             <div class="flex items-center space-x-3">
                                 <div class="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center">
@@ -30,20 +30,22 @@ export const renderDriverDashboard = (userEmail) => {
                                     </svg>
                                 </div>
                                 <div>
-                                    <h2 class="text-xl font-bold text-white">Route Navigation</h2>
-                                    <p class="text-sm text-gray-400">GPS-guided delivery route</p>
+                                    <h2 class="text-xl font-bold theme-text-primary">Route Navigation</h2>
+                                    <p class="text-sm theme-text-muted">GPS-guided delivery route</p>
                                 </div>
                             </div>
-                            <div class="flex items-center space-x-2 text-sm text-gray-400">
+                            <div class="flex items-center space-x-2 text-sm theme-text-muted">
                                 <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
                                 <span>Interactive</span>
                             </div>
                         </div>
-                        <div id="driver-map-container" class="h-96 bg-dark-700 rounded-xl shadow-inner flex items-center justify-center">
-                            <div class="text-center text-gray-400">
-                                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-                                <p class="font-medium">Initializing GPS navigation...</p>
-                                <p class="text-sm mt-1">Please wait while we load your route</p>
+                                                <div id="driver-map-container" class="h-96 bg-dark-700 rounded-xl shadow-inner lazy-placeholder">
+                            <div class="h-full flex items-center justify-center text-gray-500">
+                                <div class="text-center">
+                                    <div class="animate-pulse inline-block w-8 h-8 text-4xl mb-2">🗺️</div>
+                                    <p>Navigation map will load when route is assigned</p>
+                                    <p class="text-sm mt-1">Real-time GPS tracking and turn-by-turn directions</p>
+                                </div>
                             </div>
                         </div>
                         
@@ -64,15 +66,15 @@ export const renderDriverDashboard = (userEmail) => {
                     </section>
 
                     <!-- Location Tracking Status -->
-                    <section id="location-status" class="bg-dark-800 rounded-2xl shadow-2xl p-4 card-hover hidden animate-slide-up" style="animation-delay: 0.3s;">
+                    <section id="location-status" class="theme-card p-4 card-hover hidden animate-slide-up" style="animation-delay: 0.3s;">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center space-x-4">
                                 <div class="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center">
                                     <div class="w-6 h-6 bg-green-500 rounded-full animate-pulse"></div>
                                 </div>
                                 <div>
-                                    <p class="text-white font-semibold">Location Tracking Active</p>
-                                    <p class="text-sm text-gray-400">
+                                    <p class="theme-text-primary font-semibold">Location Tracking Active</p>
+                                    <p class="text-sm theme-text-muted">
                                         Status: <span id="location-status-text" class="font-medium text-green-400">Stopped</span>
                                     </p>
                                 </div>
@@ -85,7 +87,7 @@ export const renderDriverDashboard = (userEmail) => {
                     </section>
 
                     <!-- Location Tracking Control -->
-                    <section class="bg-dark-800 rounded-2xl shadow-2xl p-6 card-hover animate-slide-up" style="animation-delay: 0.4s;">
+                    <section class="theme-card p-6 card-hover animate-slide-up" style="animation-delay: 0.4s;">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center space-x-4">
                                 <div class="w-12 h-12 bg-primary-500/10 rounded-xl flex items-center justify-center">
@@ -94,8 +96,8 @@ export const renderDriverDashboard = (userEmail) => {
                                     </svg>
                                 </div>
                                 <div>
-                                    <h3 class="text-lg font-semibold text-white">GPS Tracking</h3>
-                                    <p class="text-sm text-gray-400">Enable real-time location updates</p>
+                                    <h3 class="text-lg font-semibold theme-text-primary">GPS Tracking</h3>
+                                    <p class="text-sm theme-text-muted">Enable real-time location updates</p>
                                 </div>
                             </div>
                             <button id="toggle-location-btn" class="btn-primary py-3 px-6 text-white font-semibold rounded-xl flex items-center space-x-2 transition-all duration-200">
@@ -110,7 +112,7 @@ export const renderDriverDashboard = (userEmail) => {
 
                 <!-- Right Column: Tasks and Route Info -->
                 <div class="lg:col-span-1">
-                    <section class="bg-dark-800 rounded-2xl shadow-2xl p-6 card-hover animate-slide-up" style="animation-delay: 0.5s;">
+                    <section class="theme-card p-6 card-hover animate-slide-up" style="animation-delay: 0.5s;">
                         <div class="flex items-center space-x-3 mb-6">
                             <div class="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
                                 <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -118,8 +120,8 @@ export const renderDriverDashboard = (userEmail) => {
                                 </svg>
                             </div>
                             <div>
-                                <h2 class="text-xl font-bold text-white">My Route Today</h2>
-                                <p class="text-sm text-gray-400">Delivery assignments & progress</p>
+                                <h2 class="text-xl font-bold theme-text-primary">My Route Today</h2>
+                                <p class="text-sm theme-text-muted">Delivery assignments & progress</p>
                             </div>
                         </div>
                         <div id="driver-tasks-container" class="space-y-4">

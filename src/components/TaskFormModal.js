@@ -2,8 +2,11 @@
  * @file Renders and manages the modal form for creating and editing tasks.
  */
 
+import { geocodeWithGemini } from '../services/geminiGeocodingService.js';
+
 // --- State ---
 let onSubmitCallback = null;
+let useGeminiGeocoding = true; // Toggle to enable/disable Gemini AI geocoding
 
 /**
  * Opens and injects the task modal into the DOM.
@@ -40,7 +43,10 @@ export const openTaskModal = (onSubmit, taskToEdit = null) => {
                          <div>
                             <label for="deliveryAddress" class="block text-sm font-medium theme-text-primary">Delivery Address</label>
                             <input type="text" id="deliveryAddress" name="deliveryAddress" required class="mt-1 block w-full theme-input rounded-md shadow-sm py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200" value="${taskToEdit?.deliveryAddress || ''}" placeholder="Enter full address">
-                            <p class="mt-1 text-sm theme-text-muted">Enter complete address for accurate delivery location</p>
+                            <p class="mt-1 text-sm text-blue-600 flex items-center gap-1">
+                                <span>🤖</span>
+                                <span>Gemini AI-powered geocoding enabled for accurate results</span>
+                            </p>
                         </div>
                          <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -88,9 +94,18 @@ const handleFormSubmit = async (e, taskId) => {
     const formData = new FormData(form);
 
     try {
-        // Get coordinates from address
-        const address = formData.get('deliveryAddress');
-        const location = await geocodeAddress(address);
+        // Get coordinates from address with enhanced geocoding
+        const originalAddress = formData.get('deliveryAddress');
+        
+        // Use Gemini AI geocoding if enabled, otherwise fallback to Nominatim
+        let geocodingResult;
+        if (useGeminiGeocoding) {
+            console.log('🤖 Using Gemini AI for geocoding...');
+            geocodingResult = await geocodeWithGemini(originalAddress);
+        } else {
+            console.log('🗺️ Using Nominatim for geocoding...');
+            geocodingResult = await geocodeAddress(originalAddress);
+        }
 
         // Convert datetime-local string to Firestore Timestamp
         const startTime = new Date(formData.get('timeWindowStart')).getTime();
@@ -99,8 +114,18 @@ const handleFormSubmit = async (e, taskId) => {
         const taskData = {
             customerId: formData.get('customerId'),
             demandVolume: parseInt(formData.get('demandVolume'), 10),
-            deliveryAddress: address,
-            location: location,
+            // ALWAYS preserve original address exactly as entered by user
+            originalAddress: originalAddress, // Exact user input - NEVER modify this
+            deliveryAddress: originalAddress, // Store original user input for backward compatibility
+            geocodedAddress: geocodingResult.geocodedAddress || null, // Only if Gemini provides clarification
+            location: {
+                latitude: geocodingResult.latitude,
+                longitude: geocodingResult.longitude
+            },
+            geocodingConfidence: geocodingResult.confidence,
+            geocodingVariation: geocodingResult.variation,
+            geocodingMethod: geocodingResult.geocodingMethod || 'nominatim', // Track which method was used
+            parsedComponents: geocodingResult.parsedComponents || null, // Store Gemini's parsed data
             // Firestore expects seconds and nanoseconds
             timeWindowStart: {
                 seconds: Math.floor(startTime / 1000),

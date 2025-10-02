@@ -1,4 +1,3 @@
-import { MinHeap } from './minHeap.js';
 import { ORS_API_KEY } from '../api/config.js';
 
 /**
@@ -13,58 +12,224 @@ const createVroomPayload = (orderedTasks, vehicles) => {
     const vehicleIdMap = new Map();
     
     const jobs = orderedTasks.map((task, index) => {
-        if (!task.location || typeof task.location.latitude === 'undefined' || typeof task.location.longitude === 'undefined') {
-            throw new Error(`Invalid location data for task ${task.id || 'unknown'}: ${JSON.stringify(task.location)}`);
+        console.log(`\n🔍 Processing task ${task.id}:`, {
+            timeWindowStart: task.timeWindowStart,
+            timeWindowEnd: task.timeWindowEnd,
+            location: task.location,
+            deliveryLocation: task.deliveryLocation,
+            coordinates: task.coordinates
+        });
+        
+        // Handle different location property names (location, deliveryLocation, coordinates)
+        const taskLocationRaw = task.location || task.deliveryLocation || task.coordinates;
+        
+        if (!taskLocationRaw) {
+            console.error(`Task ${task.id} has no location data`);
+            throw new Error(`No location data for task ${task.id || 'unknown'}`);
+        }
+        
+        // Extract coordinates from Firestore GeoPoint or regular object
+        let taskLocation;
+        if (taskLocationRaw.latitude !== undefined && taskLocationRaw.longitude !== undefined) {
+            // Standard lat/lng object
+            taskLocation = {
+                latitude: taskLocationRaw.latitude,
+                longitude: taskLocationRaw.longitude
+            };
+        } else if (taskLocationRaw._lat !== undefined && taskLocationRaw._long !== undefined) {
+            // Firestore GeoPoint object
+            taskLocation = {
+                latitude: taskLocationRaw._lat,
+                longitude: taskLocationRaw._long
+            };
+        } else if (typeof taskLocationRaw.latitude === 'function' && typeof taskLocationRaw.longitude === 'function') {
+            // Firestore GeoPoint with methods (sometimes happens in certain contexts)
+            taskLocation = {
+                latitude: taskLocationRaw.latitude(),
+                longitude: taskLocationRaw.longitude()
+            };
+        } else {
+            console.error(`Task ${task.id} location data:`, taskLocationRaw);
+            throw new Error(`Invalid location data for task ${task.id || 'unknown'}: ${JSON.stringify(taskLocationRaw)}`);
+        }
+        
+        // Validate extracted coordinates
+        if (typeof taskLocation.latitude !== 'number' || typeof taskLocation.longitude !== 'number' || 
+            isNaN(taskLocation.latitude) || isNaN(taskLocation.longitude)) {
+            console.error(`Task ${task.id} extracted invalid coordinates:`, taskLocation);
+            throw new Error(`Invalid coordinates for task ${task.id || 'unknown'}: lat=${taskLocation.latitude}, lng=${taskLocation.longitude}`);
         }
 
         // Use index + 1000 as numeric ID (to avoid conflicts with vehicle IDs)
         const numericId = index + 1000;
         taskIdMap.set(numericId, task.id);
 
+        // Handle time windows - convert to timestamp if needed
+        let startTime, endTime;
+        const now = Math.floor(Date.now() / 1000);
+        const todayStart = Math.floor(new Date().setHours(8, 0, 0, 0) / 1000); // 8 AM today
+        const todayEnd = Math.floor(new Date().setHours(18, 0, 0, 0) / 1000); // 6 PM today
+        
+        if (task.timeWindowStart && task.timeWindowStart.seconds) {
+            // Already a Firebase Timestamp - but validate it's reasonable
+            startTime = task.timeWindowStart.seconds;
+            endTime = task.timeWindowEnd.seconds;
+            
+            // If the timestamps are unreasonable (too far in future/past), use current day
+            if (startTime > now + (365 * 24 * 60 * 60) || startTime < now - (365 * 24 * 60 * 60)) {
+                console.warn(`Task ${task.id}: Invalid timestamp detected, using safe working hours`);
+                startTime = Math.max(now, todayStart);
+                endTime = Math.max(startTime + 3600, todayEnd); // Ensure end > start
+            }
+        } else if (task.timeWindowStart) {
+            // Convert ISO string or Date to timestamp
+            const startDate = new Date(task.timeWindowStart);
+            const endDate = new Date(task.timeWindowEnd);
+            
+            if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+                startTime = Math.floor(startDate.getTime() / 1000);
+                endTime = Math.floor(endDate.getTime() / 1000);
+                
+                // Validate reasonable dates
+                if (startTime > now + (365 * 24 * 60 * 60) || startTime < now - (365 * 24 * 60 * 60)) {
+                    console.warn(`Task ${task.id}: Invalid dates, using safe working hours`);
+                    startTime = Math.max(now, todayStart);
+                    endTime = Math.max(startTime + 3600, todayEnd); // Ensure end > start
+                }
+            } else {
+                console.warn(`Task ${task.id}: Invalid date format, using safe working hours`);
+                startTime = Math.max(now, todayStart);
+                endTime = Math.max(startTime + 3600, todayEnd); // Ensure end > start
+            }
+        } else {
+            // Default time window - use safe working hours
+            startTime = Math.max(now, todayStart);
+            endTime = Math.max(startTime + 3600, todayEnd); // Ensure end > start
+        }
+        
+        // Ensure end time is after start time and reasonable
+        if (endTime <= startTime) {
+            console.warn(`⚠️ Task ${task.id}: End time (${endTime}) <= start time (${startTime}), fixing...`);
+            endTime = startTime + (4 * 60 * 60); // Add 4 hours if end time is invalid
+        }
+        
+        // Additional safety check - ensure minimum reasonable window
+        const minWindow = 1800; // 30 minutes minimum
+        if (endTime - startTime < minWindow) {
+            console.warn(`⚠️ Task ${task.id}: Time window too narrow, extending...`);
+            endTime = startTime + minWindow;
+        }
+
+        console.log(`Task ${task.id} mapped to job ${numericId}:`);
+        console.log(`  📍 Location: [${taskLocation.longitude}, ${taskLocation.latitude}]`);
+        console.log(`  ⏰ Time window: [${startTime}, ${endTime}] (${new Date(startTime * 1000).toLocaleString()} - ${new Date(endTime * 1000).toLocaleString()})`);
+        console.log(`  📦 Volume: ${task.demandVolume || 1}`);
+
         return {
             id: numericId,
-            location: [task.location.longitude, task.location.latitude],
+            location: [taskLocation.longitude, taskLocation.latitude],
             service: 300, // Service time in seconds (e.g., 5 minutes)
-            amount: [task.demandVolume],
-            time_windows: [[
-                task.timeWindowStart.seconds,
-                task.timeWindowEnd.seconds
-            ]]
+            amount: [task.demandVolume || 1],
+            time_windows: [[startTime, endTime]]
         };
     });
 
     const vroomVehicles = vehicles.map((vehicle, index) => {
         // Use current GPS location if available, otherwise start location
-        const location = vehicle.currentLocation || vehicle.startLocation;
+        const locationRaw = vehicle.currentLocation || vehicle.startLocation;
         
-        if (!location || typeof location.latitude === 'undefined' || typeof location.longitude === 'undefined') {
-            throw new Error(`Invalid location data for vehicle ${vehicle.id}: ${JSON.stringify(location)}`);
+        if (!locationRaw) {
+            throw new Error(`No location data for vehicle ${vehicle.id}`);
+        }
+        
+        // Extract coordinates from Firestore GeoPoint or regular object
+        let location;
+        if (locationRaw.latitude !== undefined && locationRaw.longitude !== undefined) {
+            // Standard lat/lng object
+            location = {
+                latitude: locationRaw.latitude,
+                longitude: locationRaw.longitude
+            };
+        } else if (locationRaw._lat !== undefined && locationRaw._long !== undefined) {
+            // Firestore GeoPoint object
+            location = {
+                latitude: locationRaw._lat,
+                longitude: locationRaw._long
+            };
+        } else if (typeof locationRaw.latitude === 'function' && typeof locationRaw.longitude === 'function') {
+            // Firestore GeoPoint with methods
+            location = {
+                latitude: locationRaw.latitude(),
+                longitude: locationRaw.longitude()
+            };
+        } else {
+            throw new Error(`Invalid location data for vehicle ${vehicle.id}: ${JSON.stringify(locationRaw)}`);
+        }
+        
+        // Validate extracted coordinates
+        if (typeof location.latitude !== 'number' || typeof location.longitude !== 'number' || 
+            isNaN(location.latitude) || isNaN(location.longitude)) {
+            throw new Error(`Invalid coordinates for vehicle ${vehicle.id}: lat=${location.latitude}, lng=${location.longitude}`);
         }
 
         // Default shift times if not provided
         const now = Math.floor(Date.now() / 1000);
-        const endOfDay = Math.floor(new Date().setHours(23, 59, 59) / 1000);
+        const shiftStart = Math.floor(new Date().setHours(8, 0, 0, 0) / 1000); // 8 AM today
+        const shiftEnd = Math.floor(new Date().setHours(18, 0, 0, 0) / 1000); // 6 PM today
 
         // Use index + 1 as numeric ID (VROOM expects positive integers)
         const numericId = index + 1;
         vehicleIdMap.set(numericId, vehicle.id);
+
+        // Handle vehicle time windows
+        let vehicleStartTime, vehicleEndTime;
+        
+        if (vehicle.shiftStart?.seconds && vehicle.shiftEnd?.seconds) {
+            vehicleStartTime = vehicle.shiftStart.seconds;
+            vehicleEndTime = vehicle.shiftEnd.seconds;
+            
+            // Validate reasonable shift times
+            if (vehicleStartTime > now + (365 * 24 * 60 * 60) || vehicleStartTime < now - (365 * 24 * 60 * 60)) {
+                console.warn(`Vehicle ${vehicle.id}: Invalid shift times, using today's working hours`);
+                vehicleStartTime = Math.max(now, shiftStart);
+                vehicleEndTime = shiftEnd;
+            }
+            
+            // CRITICAL FIX: Ensure end time is after start time for vehicles
+            if (vehicleEndTime <= vehicleStartTime) {
+                console.warn(`⚠️ Vehicle ${vehicle.id}: End time (${vehicleEndTime}) <= start time (${vehicleStartTime}), fixing...`);
+                vehicleEndTime = vehicleStartTime + (8 * 60 * 60); // Add 8-hour shift
+            }
+        } else {
+            // Use current working hours
+            vehicleStartTime = Math.max(now, shiftStart);
+            vehicleEndTime = shiftEnd;
+            
+            // Ensure end time is after start time
+            if (vehicleEndTime <= vehicleStartTime) {
+                vehicleEndTime = vehicleStartTime + (8 * 60 * 60); // Add 8-hour shift
+            }
+        }
+
+        console.log(`Vehicle ${vehicle.id} mapped to vehicle ${numericId} with shift [${vehicleStartTime}, ${vehicleEndTime}]`);
 
         return {
             id: numericId,
             profile: 'driving-car', // or driving-hgv for trucks
             start: [location.longitude, location.latitude], // Use current GPS position
             capacity: [vehicle.maxCapacity],
-            time_window: [
-                vehicle.shiftStart?.seconds || now,
-                vehicle.shiftEnd?.seconds || endOfDay
-            ]
+            time_window: [vehicleStartTime, vehicleEndTime]
         };
     });
 
     return {
         jobs,
         vehicles: vroomVehicles,
-        options: { g: true }, // Request geometry for drawing routes on map
+        options: { 
+            g: true, // Request geometry for drawing routes on map
+            c: true, // Request detailed cost information 
+            t: true  // Request detailed timing information
+        },
         idMaps: { taskIdMap, vehicleIdMap } // Return the ID maps for later use
     };
 };/**
@@ -73,6 +238,42 @@ const createVroomPayload = (orderedTasks, vehicles) => {
  * @param {import('../data/models.js').Vehicle[]} vehicles - An array of available vehicle objects.
  * @returns {Promise<Object>} A promise that resolves with the optimized route plan from the API.
  */
+/**
+ * Estimates route distance using Haversine formula when API doesn't provide it
+ */
+const estimateRouteDistance = (steps) => {
+    if (!steps || steps.length < 2) return 1000; // Default 1km
+    
+    let totalDistance = 0;
+    
+    for (let i = 0; i < steps.length - 1; i++) {
+        const current = steps[i];
+        const next = steps[i + 1];
+        
+        if (current.location && next.location) {
+            const [lon1, lat1] = current.location;
+            const [lon2, lat2] = next.location;
+            
+            // Haversine formula for distance calculation
+            const R = 6371000; // Earth's radius in meters
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+            
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                     Math.cos(φ1) * Math.cos(φ2) *
+                     Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            
+            totalDistance += R * c;
+        }
+    }
+    
+    // Add 20% for road routing vs straight line distance
+    return Math.round(totalDistance * 1.2);
+};
+
 /**
  * Gets current GPS location for a vehicle or falls back to start location
  */
@@ -111,20 +312,112 @@ export const optimizeRouteHandler = async (tasks, vehicles) => {
         }))
     );
     
-    // 1. Prioritize tasks using Min-Heap
-    const taskPriorityQueue = new MinHeap('timeWindowEnd');
-    tasks.forEach(task => taskPriorityQueue.insert(task));
-    const orderedTasks = [];
-    while (!taskPriorityQueue.isEmpty()) {
-        orderedTasks.push(taskPriorityQueue.extractMin());
-    }
-    console.log("Tasks prioritized by deadline:", orderedTasks);
-
-    // 2. Create the API payload using current GPS locations
-    const payloadData = createVroomPayload(orderedTasks, vehiclesWithCurrentLocation);
+    // 1. Create the API payload using current GPS locations
+    const payloadData = createVroomPayload(tasks, vehiclesWithCurrentLocation);
     const { idMaps, ...payload } = payloadData;
     const { taskIdMap, vehicleIdMap } = idMaps;
-    console.log("ORS Vroom API Payload (with GPS locations):", JSON.stringify(payload, null, 2));
+    // Validate the payload for common issues
+    console.log("🔍 Validating optimization payload...");
+    
+    // Check for duplicate locations
+    const locations = payload.jobs.map(job => `${job.location[0]},${job.location[1]}`);
+    const uniqueLocations = new Set(locations);
+    if (locations.length !== uniqueLocations.size) {
+        console.warn("⚠️ Warning: Multiple tasks have identical locations. This may affect optimization:");
+        const locationCounts = {};
+        locations.forEach(loc => {
+            locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+        });
+        Object.entries(locationCounts).forEach(([loc, count]) => {
+            if (count > 1) {
+                console.warn(`  📍 Location [${loc}] has ${count} tasks`);
+            }
+        });
+    }
+    
+    // Validate and fix time windows BEFORE sending to API
+    const currentTime = Math.floor(Date.now() / 1000);
+    
+    // Fix job time windows
+    payload.jobs.forEach((job, index) => {
+        let [start, end] = job.time_windows[0];
+        let fixed = false;
+        
+        // Fix critical error: end <= start
+        if (end <= start) {
+            console.warn(`⚠️ Job ${job.id}: Invalid time window [${start}, ${end}], fixing...`);
+            end = start + 3600; // Add 1 hour minimum
+            fixed = true;
+        }
+        
+        // Fix if starts too far in the past
+        if (start < currentTime - 3600) {
+            start = currentTime;
+            end = Math.max(end, currentTime + 3600);
+            fixed = true;
+        }
+        
+        // Ensure minimum 30-minute window
+        if (end - start < 1800) {
+            end = start + 1800;
+            fixed = true;
+        }
+        
+        if (fixed) {
+            job.time_windows[0] = [start, end];
+            console.log(`✅ Job ${job.id}: Fixed time window to [${start}, ${end}]`);
+        }
+    });
+    
+    // Fix vehicle time windows
+    payload.vehicles.forEach((vehicle, index) => {
+        let [start, end] = vehicle.time_window;
+        let fixed = false;
+        
+        // Fix critical error: end <= start
+        if (end <= start) {
+            console.warn(`⚠️ Vehicle ${vehicle.id}: Invalid time window [${start}, ${end}], fixing...`);
+            end = start + (8 * 60 * 60); // Add 8-hour shift
+            fixed = true;
+        }
+        
+        // Ensure minimum 4-hour shift
+        if (end - start < (4 * 60 * 60)) {
+            end = start + (8 * 60 * 60); // Standard 8-hour shift
+            fixed = true;
+        }
+        
+        if (fixed) {
+            vehicle.time_window = [start, end];
+            console.log(`✅ Vehicle ${vehicle.id}: Fixed time window to [${start}, ${end}]`);
+        }
+    });
+
+    // Final validation - ensure no invalid time windows remain
+    const invalidJobs = payload.jobs.filter(job => {
+        const [start, end] = job.time_windows[0];
+        return end <= start;
+    });
+    
+    const invalidVehicles = payload.vehicles.filter(vehicle => {
+        const [start, end] = vehicle.time_window;
+        return end <= start;
+    });
+    
+    if (invalidJobs.length > 0 || invalidVehicles.length > 0) {
+        console.error("❌ CRITICAL: Invalid time windows still found after validation:");
+        invalidJobs.forEach(job => {
+            const [start, end] = job.time_windows[0];
+            console.error(`  💥 Job ${job.id}: [${start}, ${end}]`);
+        });
+        invalidVehicles.forEach(vehicle => {
+            const [start, end] = vehicle.time_window;
+            console.error(`  💥 Vehicle ${vehicle.id}: [${start}, ${end}]`);
+        });
+        throw new Error("Invalid time windows detected - cannot proceed with optimization");
+    }
+    
+    console.log("✅ All time windows validated successfully");
 
     // 3. Call the ORS Vroom API
     const VROOM_API_URL = 'https://api.openrouteservice.org/optimization';
@@ -148,12 +441,331 @@ export const optimizeRouteHandler = async (tasks, vehicles) => {
         console.log("ORS Vroom API Response:", result);
         console.log("Routes in response:", result.routes);
         
-        // Debug unassigned tasks
+        // Validate and enhance route information with robust fallbacks
+        if (result.routes && Array.isArray(result.routes)) {
+            result.routes.forEach((route, index) => {
+                console.log(`Route ${index + 1} for vehicle ${route.vehicle}:`);
+                console.log(`  - Distance: ${route.distance}m (${(route.distance/1000).toFixed(2)}km)`);
+                console.log(`  - Duration: ${route.duration}s (${Math.round(route.duration/60)}min)`);
+                console.log(`  - Cost: ${route.cost || 'N/A'}`);
+                console.log(`  - Steps: ${route.steps.length}`);
+                console.log(`  - Jobs in route: ${route.steps.filter(s => s.type === 'job').length}`);
+                
+                // Fix distance issues - ensure we have meaningful values
+                if (!route.distance || route.distance === 0 || isNaN(route.distance)) {
+                    console.warn(`Route ${index + 1}: Invalid distance (${route.distance}), calculating estimate...`);
+                    const estimatedDistance = estimateRouteDistance(route.steps);
+                    route.distance = Math.max(estimatedDistance, 1000); // Minimum 1km
+                    console.log(`  ✅ Updated distance to: ${route.distance}m (${(route.distance/1000).toFixed(2)}km)`);
+                }
+                
+                // Fix duration issues - ensure we have meaningful values
+                if (!route.duration || route.duration === 0 || isNaN(route.duration)) {
+                    console.warn(`Route ${index + 1}: Invalid duration (${route.duration}), calculating estimate...`);
+                    // Use realistic travel time: distance(km) * 2 minutes per km + 5 min per stop
+                    const jobCount = route.steps.filter(s => s.type === 'job').length;
+                    const travelTime = Math.round((route.distance / 1000) * 120); // 2 minutes per km
+                    const serviceTime = jobCount * 300; // 5 minutes per stop
+                    route.duration = Math.max(travelTime + serviceTime, 900); // Minimum 15 minutes
+                    console.log(`  ✅ Updated duration to: ${route.duration}s (${Math.round(route.duration/60)}min)`);
+                }
+                
+                // Ensure cost is calculated if missing
+                if (!route.cost || route.cost === 0) {
+                    // Simple cost model: distance cost + time cost
+                    route.cost = Math.round((route.distance / 1000) * 8.5 + (route.duration / 3600) * 25);
+                }
+            });
+        }
+        
+        // Analyze time window conflicts before processing unassigned tasks
+        const hasTimeWindowConflicts = result.unassigned && result.unassigned.length > 0 && 
+            vehicles.some(vehicle => {
+                const vStart = vehicle.shiftStart?.seconds || vehicle.shiftStart || 0;
+                const vEnd = vehicle.shiftEnd?.seconds || vehicle.shiftEnd || 0;
+                return tasks.some(task => {
+                    const tStart = task.timeWindowStart?.seconds || task.timeWindowStart || 0;
+                    const tEnd = task.timeWindowEnd?.seconds || task.timeWindowEnd || 0;
+                    // Check if there's no overlap between vehicle shift and task time window
+                    return (tStart >= vEnd || tEnd <= vStart);
+                });
+            });
+
+        if (hasTimeWindowConflicts) {
+            console.warn("⏰ TIME WINDOW CONFLICT DETECTED:");
+            console.warn("Tasks require delivery outside of vehicle operating hours.");
+            console.warn("Vehicle schedules:", vehicles.map(v => ({
+                id: v.id,
+                shift: `${new Date((v.shiftStart?.seconds || v.shiftStart) * 1000).toLocaleString()} - ${new Date((v.shiftEnd?.seconds || v.shiftEnd) * 1000).toLocaleString()}`
+            })));
+            console.warn("Task time windows:", tasks.map(t => ({
+                id: t.id,
+                window: `${new Date((t.timeWindowStart?.seconds || t.timeWindowStart) * 1000).toLocaleString()} - ${new Date((t.timeWindowEnd?.seconds || t.timeWindowEnd) * 1000).toLocaleString()}`
+            })));
+        }
+
+        // Debug unassigned tasks with detailed analysis
         if (result.unassigned && result.unassigned.length > 0) {
             console.warn("⚠️ Unassigned tasks found:", result.unassigned);
             result.unassigned.forEach(unassigned => {
-                console.warn(`Task ${unassigned.id} unassigned. Reason: ${unassigned.description || 'Unknown'}`);
+                // Convert back to original task ID for better debugging
+                const originalTaskId = taskIdMap.get(unassigned.id) || unassigned.id;
+                const originalTask = tasks.find(t => t.id === originalTaskId);
+                
+                // Provide detailed reason analysis
+                let reason = unassigned.description || unassigned.reason || 'No specific reason provided';
+                
+                // Common reasons and their explanations
+                if (reason.includes('time_window') || reason.includes('time')) {
+                    reason = 'Time window constraint violation - task deadline cannot be met by any vehicle';
+                } else if (reason.includes('capacity') || reason.includes('amount')) {
+                    reason = 'Capacity constraint violation - task volume exceeds vehicle capacity';
+                } else if (reason.includes('location') || reason.includes('distance')) {
+                    reason = 'Location constraint - task location is too far or unreachable';
+                } else if (reason === 'Unknown' || !reason) {
+                    reason = 'Optimization constraint - task cannot be feasibly assigned to any vehicle';
+                }
+                
+                console.warn(`❌ Task ${originalTaskId} (job ${unassigned.id}) unassigned.`);
+                console.warn(`  📋 Reason: ${reason}`);
+                
+                if (originalTask) {
+                    // Find the corresponding job in the payload for better debugging
+                    const job = payload.jobs?.find(j => j.id === unassigned.id);
+                    console.warn(`  📊 Task details:`, {
+                        customer: originalTask.customerId,
+                        volume: originalTask.demandVolume,
+                        location: originalTask.location || originalTask.deliveryLocation || originalTask.coordinates,
+                        coordinates: job ? `[${job.location[0]}, ${job.location[1]}]` : 'Unknown',
+                        timeWindow: job ? 
+                            `${new Date(job.time_windows[0][0] * 1000).toLocaleString()} - ${new Date(job.time_windows[0][1] * 1000).toLocaleString()}` : 
+                            'No time window'
+                    });
+                    
+                    if (job) {
+                        console.warn(`  ⏰ Time window (seconds): [${job.time_windows[0][0]}, ${job.time_windows[0][1]}]`);
+                        console.warn(`  📦 Demand: ${job.amount[0]} units`);
+                    }
+                }
+                
+                console.warn(`  🚛 Available vehicles: ${vehicles.length}`);
+                console.warn(`  📈 Total fleet capacity: ${vehicles.reduce((sum, v) => sum + v.maxCapacity, 0)} units`);
+                
+                // Additional analysis
+                if (vehicles.length > 0 && payload.vehicles && payload.vehicles.length > 0) {
+                    const firstVehicle = payload.vehicles[0];
+                    console.warn(`  🚚 Vehicle 1 details:`, {
+                        id: firstVehicle.id,
+                        capacity: firstVehicle.capacity[0],
+                        location: firstVehicle.start,
+                        timeWindow: `${new Date(firstVehicle.time_window[0] * 1000).toLocaleString()} - ${new Date(firstVehicle.time_window[1] * 1000).toLocaleString()}`
+                    });
+                }
             });
+        } else {
+            console.log("✅ All tasks successfully assigned to vehicles");
+        }
+        
+        // If no routes were generated but we have tasks and vehicles, create deadline-aware distance-optimized manual assignment
+        if ((!result.routes || result.routes.length === 0) && tasks.length > 0 && vehicles.length > 0) {
+            console.warn("🔧 No routes generated by VRP solver. Creating deadline-aware distance-optimized manual assignment...");
+            console.log("🐛 DEBUG: Using NEW distance-based algorithm (MinHeap removed from manual routes)");
+            console.log("🐛 DEBUG: Input tasks:", tasks.map(t => ({ id: t.id, customerId: t.customerId, location: t.location })));
+            
+            const manualRoutes = [];
+            const unassignedTasks = [...tasks];
+            
+            // Categorize tasks by urgency (deadline within 2 hours = urgent)
+            const now = Math.floor(Date.now() / 1000);
+            const urgentThreshold = now + (2 * 60 * 60); // 2 hours from now
+            
+            const categorizeTasks = () => {
+                const urgent = [];
+                const normal = [];
+                unassignedTasks.forEach(task => {
+                    const deadline = task.timeWindowEnd?.seconds || task.timeWindowEnd || (now + 8 * 60 * 60); // default 8 hours
+                    if (deadline <= urgentThreshold) {
+                        urgent.push(task);
+                    } else {
+                        normal.push(task);
+                    }
+                });
+                console.log(`📊 Task categorization: ${urgent.length} urgent, ${normal.length} normal`);
+                return { urgent, normal };
+            };
+            
+            // For each vehicle, assign tasks using deadline-aware nearest-neighbor heuristic
+            vehicles.forEach(vehicle => {
+                const vehicleLocationRaw = vehicle.currentLocation || vehicle.startLocation;
+                
+                // Extract coordinates from Firestore GeoPoint or regular object
+                let vehicleLocation;
+                if (!vehicleLocationRaw) {
+                    console.warn(`⚠️ Vehicle ${vehicle.id} has no location data, skipping`);
+                    return;
+                } else if (vehicleLocationRaw.latitude !== undefined && vehicleLocationRaw.longitude !== undefined) {
+                    vehicleLocation = vehicleLocationRaw;
+                } else if (vehicleLocationRaw._lat !== undefined && vehicleLocationRaw._long !== undefined) {
+                    vehicleLocation = {
+                        latitude: vehicleLocationRaw._lat,
+                        longitude: vehicleLocationRaw._long
+                    };
+                } else {
+                    console.warn(`⚠️ Vehicle ${vehicle.id} has invalid location format, skipping:`, vehicleLocationRaw);
+                    return;
+                }
+                
+                const route = {
+                    vehicle: vehicle.id,
+                    cost: 0,
+                    duration: 0,
+                    distance: 0,
+                    steps: []
+                };
+                
+                // Current position for nearest-neighbor search
+                let currentLat = vehicleLocation.latitude;
+                let currentLng = vehicleLocation.longitude;
+                let currentCapacity = 0;
+                
+                // PHASE 1: Assign urgent tasks first (deadline-critical)
+                const { urgent, normal } = categorizeTasks();
+                let taskPool = urgent.length > 0 ? urgent : normal;
+                let phase = urgent.length > 0 ? 'urgent' : 'normal';
+                
+                console.log(`🚛 Vehicle ${vehicle.id}: Starting with ${taskPool.length} ${phase} tasks`);
+                
+                // Assign tasks to this vehicle using nearest-neighbor until capacity reached
+                while (unassignedTasks.length > 0 && currentCapacity < vehicle.maxCapacity) {
+                    // Switch to normal tasks if urgent tasks are exhausted
+                    if (taskPool.length === 0 && phase === 'urgent') {
+                        const remaining = categorizeTasks();
+                        taskPool = remaining.normal;
+                        phase = 'normal';
+                        if (taskPool.length > 0) {
+                            console.log(`   ✅ All urgent tasks assigned. Moving to ${taskPool.length} normal tasks.`);
+                        }
+                    }
+                    
+                    if (taskPool.length === 0) break; // No more tasks
+                    if (taskPool.length === 0) break; // No more tasks
+                    
+                    let nearestTaskIndex = -1;
+                    let nearestDistance = Infinity;
+                    let nearestGlobalIndex = -1;
+                    
+                    // Find nearest unassigned task from current pool that fits capacity
+                    taskPool.forEach((task, poolIndex) => {
+                        const taskLocation = task.location || task.deliveryLocation || task.coordinates;
+                        if (!taskLocation) return;
+                        
+                        // Extract task coordinates from Firestore GeoPoint or regular object
+                        let taskLat, taskLng;
+                        if (taskLocation.latitude !== undefined && taskLocation.longitude !== undefined) {
+                            taskLat = taskLocation.latitude;
+                            taskLng = taskLocation.longitude;
+                        } else if (taskLocation._lat !== undefined && taskLocation._long !== undefined) {
+                            taskLat = taskLocation._lat;
+                            taskLng = taskLocation._long;
+                        } else if (taskLocation.lat !== undefined && taskLocation.lng !== undefined) {
+                            taskLat = taskLocation.lat;
+                            taskLng = taskLocation.lng;
+                        } else {
+                            return; // Skip tasks with invalid location data
+                        }
+                        
+                        if (typeof taskLat !== 'number' || typeof taskLng !== 'number' || isNaN(taskLat) || isNaN(taskLng)) return;
+                        
+                        // Check if task fits in remaining capacity
+                        if (currentCapacity + (task.demandVolume || 1) > vehicle.maxCapacity) return;
+                        
+                        // Calculate distance using Haversine formula
+                        const R = 6371; // Earth radius in km
+                        const dLat = (taskLat - currentLat) * Math.PI / 180;
+                        const dLng = (taskLng - currentLng) * Math.PI / 180;
+                        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                                Math.cos(currentLat * Math.PI / 180) * Math.cos(taskLat * Math.PI / 180) *
+                                Math.sin(dLng/2) * Math.sin(dLng/2);
+                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        const distance = R * c;
+                        
+                        if (distance < nearestDistance) {
+                            nearestDistance = distance;
+                            nearestTaskIndex = poolIndex;
+                            // Find this task's index in the global unassignedTasks array
+                            nearestGlobalIndex = unassignedTasks.findIndex(t => t.id === task.id);
+                        }
+                    });
+                    
+                    // If no task found (capacity constraint), break
+                    if (nearestTaskIndex === -1 || nearestGlobalIndex === -1) break;
+                    
+                    // Assign the nearest task
+                    const task = taskPool[nearestTaskIndex];
+                    taskPool.splice(nearestTaskIndex, 1); // Remove from pool
+                    unassignedTasks.splice(nearestGlobalIndex, 1); // Remove from global list
+                    
+                    const taskLocation = task.location || task.deliveryLocation || task.coordinates;
+                    currentCapacity += (task.demandVolume || 1);
+                    
+                    // Normalize location to array format [lon, lat] to match ORS schema
+                    let normalizedLocation = null;
+                    if (Array.isArray(taskLocation) && taskLocation.length === 2) {
+                        normalizedLocation = [parseFloat(taskLocation[0]), parseFloat(taskLocation[1])];
+                    } else if (taskLocation && typeof taskLocation === 'object') {
+                        // Support GeoPoint-like or {lat,lng} / {latitude,longitude}
+                        const lat = typeof taskLocation.latitude === 'function' ? taskLocation.latitude() : (taskLocation.latitude ?? taskLocation.lat);
+                        const lng = typeof taskLocation.longitude === 'function' ? taskLocation.longitude() : (taskLocation.longitude ?? taskLocation.lng);
+                        if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+                            normalizedLocation = [parseFloat(lng), parseFloat(lat)];
+                            // Update current position for next nearest-neighbor search
+                            currentLat = lat;
+                            currentLng = lng;
+                        }
+                    }
+
+                    // Add distance to route metrics
+                    route.distance += Math.round(nearestDistance * 1000); // Convert km to meters
+                    route.duration += 600; // 10 minutes per stop
+                    route.cost += Math.round(nearestDistance * 8.5); // Cost per km
+
+                    // Log assignment with reasoning
+                    const deadline = task.timeWindowEnd?.seconds || task.timeWindowEnd || now;
+                    const isUrgent = deadline <= urgentThreshold;
+                    const minutesToDeadline = Math.round((deadline - now) / 60);
+                    console.log(`   📦 Assigned ${task.customerId}: ${nearestDistance.toFixed(2)}km away, ${isUrgent ? '🔴 URGENT' : '🟢 normal'} (${minutesToDeadline}min to deadline)`);
+
+                    route.steps.push({
+                        type: 'job',
+                        id: task.id,
+                        job: task.id,
+                        arrival: Math.floor(Date.now() / 1000) + (route.steps.length * 600), // 10 min intervals
+                        duration: 300,
+                        location: normalizedLocation, // always [lon, lat]
+                        load: [task.demandVolume || 1]
+                    });
+                }
+                
+                // Only add route if it has tasks
+                if (route.steps.length > 0) {
+                    manualRoutes.push(route);
+                    const urgentCount = route.steps.filter((_, idx) => idx === 0 || urgent.some(u => u.id === route.steps[idx].id)).length;
+                    console.log(`✅ Vehicle ${vehicle.id}: Assigned ${route.steps.length} tasks (${urgentCount} urgent) - ${route.distance}m, ${Math.round(route.duration/60)}min`);
+                }
+            });
+            
+            result.routes = manualRoutes;
+            
+            // Report any unassigned tasks
+            if (unassignedTasks.length > 0) {
+                console.warn(`⚠️ ${unassignedTasks.length} tasks could not be assigned due to capacity constraints:`);
+                unassignedTasks.forEach(task => {
+                    console.warn(`  - ${task.customerId}: ${task.demandVolume} units`);
+                });
+            }
+            
+            console.log(`✅ Created ${manualRoutes.length} deadline-aware distance-optimized routes for ${tasks.length - unassignedTasks.length} tasks`);
+            console.log(`📊 Algorithm: Urgent tasks (deadline < 2hrs) assigned first, then normal tasks using nearest-neighbor heuristic`);
         }
         
         // Convert numeric IDs back to original IDs in the response
@@ -177,5 +789,8 @@ export const optimizeRouteHandler = async (tasks, vehicles) => {
         throw error; // Propagate error to be handled in the UI
     }
 };
+
+// Export for testing
+export { createVroomPayload };
 
 

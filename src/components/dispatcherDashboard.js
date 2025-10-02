@@ -54,11 +54,19 @@ export const renderDispatcherDashboard = (userEmail) => {
                                 <span>Live</span>
                             </div>
                         </div>
-                        <div id="map-container" class="h-96 md:h-[600px] rounded-xl bg-dark-700 shadow-inner"></div>
+                        <div id="map-container" class="h-96 md:h-[600px] rounded-xl bg-dark-700 shadow-inner lazy-placeholder" data-lazy-component="map">
+                            <div class="h-full flex items-center justify-center text-gray-500">
+                                <div class="text-center">
+                                    <div class="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent rounded-full mb-3"></div>
+                                    <p>Loading interactive map...</p>
+                                    <p class="text-sm mt-1">Real-time vehicle tracking will appear here</p>
+                                </div>
+                            </div>
+                        </div>
                     </section>
 
                     <!-- Optimized Routes Section -->
-                    <section class="bg-dark-800 rounded-2xl shadow-2xl p-6 card-hover animate-slide-up" style="animation-delay: 0.3s;">
+                    <section class="theme-card p-6 card-hover animate-slide-up" style="animation-delay: 0.3s;">
                         <div class="flex justify-between items-center mb-6">
                             <div class="flex items-center space-x-3">
                                 <div class="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center">
@@ -93,7 +101,7 @@ export const renderDispatcherDashboard = (userEmail) => {
                 <!-- Right Column: Control Panels -->
                 <div class="xl:col-span-1 space-y-6">
                     <!-- Task Management Panel -->
-                    <section class="bg-dark-800 rounded-2xl shadow-2xl p-6 card-hover animate-slide-up" style="animation-delay: 0.4s;">
+                    <section class="theme-card p-6 card-hover animate-slide-up" style="animation-delay: 0.4s;">
                         <div class="flex justify-between items-center mb-6">
                             <div class="flex items-center space-x-3">
                                 <div class="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
@@ -128,7 +136,7 @@ export const renderDispatcherDashboard = (userEmail) => {
                     </section>
 
                     <!-- Fleet Management Panel -->
-                    <section class="bg-dark-800 rounded-2xl shadow-2xl p-6 card-hover animate-slide-up" style="animation-delay: 0.5s;">
+                    <section class="theme-card p-6 card-hover animate-slide-up" style="animation-delay: 0.5s;">
                         <div class="flex justify-between items-center mb-6">
                             <div class="flex items-center space-x-3">
                                 <div class="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
@@ -157,7 +165,7 @@ export const renderDispatcherDashboard = (userEmail) => {
                     </section>
 
                     <!-- Delivery History Panel -->
-                    <section class="bg-dark-800 rounded-2xl shadow-2xl p-6 card-hover animate-slide-up" style="animation-delay: 0.6s;">
+                    <section class="theme-card p-6 card-hover animate-slide-up" style="animation-delay: 0.6s;">
                         <div class="flex justify-between items-center mb-6">
                             <div class="flex items-center space-x-3">
                                 <div class="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center">
@@ -166,11 +174,11 @@ export const renderDispatcherDashboard = (userEmail) => {
                                     </svg>
                                 </div>
                                 <div>
-                                    <h2 class="text-xl font-bold text-white">Delivery History</h2>
-                                    <p class="text-sm text-gray-400">Completed deliveries</p>
+                                    <h2 class="text-xl font-bold theme-text-primary">Delivery History</h2>
+                                    <p class="text-sm theme-text-muted">Completed deliveries</p>
                                 </div>
                             </div>
-                            <select id="history-filter" class="bg-dark-700 border border-dark-600 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+                            <select id="history-filter" class="theme-card theme-text-primary px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 border theme-border">
                                 <option value="today">Today</option>
                                 <option value="week">This Week</option>
                                 <option value="month">This Month</option>
@@ -185,7 +193,7 @@ export const renderDispatcherDashboard = (userEmail) => {
                     </section>
 
                     <!-- Performance Reports Panel -->
-                    <section id="reports-container" class="bg-dark-800 rounded-2xl shadow-2xl p-6 card-hover animate-slide-up" style="animation-delay: 0.7s;">
+                    <section id="reports-container" class="theme-card p-6 card-hover animate-slide-up" style="animation-delay: 0.7s;">
                         <div class="flex items-center space-x-3 mb-6">
                             <div class="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
                                 <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">

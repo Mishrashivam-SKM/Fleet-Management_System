@@ -157,6 +157,76 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
+        /* Non-displacing animations - preserve layout during animation */
+        .animate-fade-in-non-displacing {
+            opacity: 0;
+            animation: fadeInNonDisplacing 0.5s ease-in-out forwards;
+        }
+
+        .animate-slide-up-non-displacing {
+            opacity: 0;
+            transform: translateY(10px);
+            animation: slideUpNonDisplacing 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeInNonDisplacing {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes slideUpNonDisplacing {
+            0% { 
+                opacity: 0; 
+                transform: translateY(10px); 
+            }
+            100% { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+
+        /* Lazy loading styles */
+        .lazy-placeholder {
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+
+        .lazy-loading {
+            transition: opacity 0.3s ease;
+        }
+
+        .lazy-loaded {
+            opacity: 1;
+            animation: fadeInNonDisplacing 0.3s ease-in-out;
+        }
+
+        .lazy-error {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        /* Disable layout-shifting animations on small screens */
+        @media (max-width: 768px) {
+            .animate-slide-up,
+            .animate-slide-down,
+            .animate-scale-in {
+                animation: none !important;
+                opacity: 1 !important;
+                transform: none !important;
+            }
+        }
+
         .dark .glass-effect {
             background: rgba(30, 41, 59, 0.8);
             border: 1px solid rgba(51, 65, 85, 0.3);
@@ -197,9 +267,9 @@
         }
 
         body.light .theme-card {
-            background: var(--light-card);
-            border: 1px solid var(--light-border);
-            color: var(--light-text);
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: #1e293b;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
@@ -530,6 +600,32 @@
     </style>
 </head>
 <body class="h-full font-sans app-bg dark transition-all duration-300">
+    <!-- Firebase Loading Screen -->
+    <div id="firebase-loading" class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="relative">
+            <!-- Animated Background -->
+            <div class="absolute inset-0 overflow-hidden pointer-events-none">
+                <div class="absolute -top-40 -right-40 w-80 h-80 bg-primary-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-soft"></div>
+                <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-primary-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse-soft" style="animation-delay: 1s;"></div>
+            </div>
+            
+            <!-- Loading Card -->
+            <div class="relative theme-card p-8 shadow-2xl text-center">
+                <div class="inline-flex items-center justify-center w-16 h-16 mb-6 bg-gradient-to-r from-primary-500 to-primary-400 rounded-2xl shadow-lg animate-glow">
+                    <svg class="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold theme-text-primary mb-2">Fleet Command</h2>
+                <p class="theme-text-muted mb-4">Initializing System...</p>
+                <div class="w-48 bg-gray-700 rounded-full h-2 mb-2">
+                    <div id="loading-progress" class="bg-primary-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <p id="loading-status" class="text-sm theme-text-muted">Connecting to Firebase...</p>
+            </div>
+        </div>
+    </div>
+    
     <div id="app-container" class="min-h-full">
         <!-- This will be populated by JavaScript based on auth state -->
         
@@ -542,7 +638,7 @@
             </div>
 
             <!-- Login Card -->
-            <div class="relative w-full max-w-md animate-slide-up">
+            <div class="relative w-full max-w-md animate-fade-in-non-displacing">
                 <!-- Logo and Header -->
                 <div class="text-center mb-8">
                     <div class="inline-flex items-center justify-center w-16 h-16 mb-6 bg-gradient-to-r from-primary-500 to-primary-400 rounded-2xl shadow-lg animate-glow">
@@ -558,7 +654,7 @@
                 <div class="theme-card p-8 shadow-2xl">
                     <form id="login-form" class="space-y-6">
                         <div class="space-y-4">
-                            <div class="animate-slide-up" style="animation-delay: 0.1s;">
+                            <div class="animate-fade-in-non-displacing" style="animation-delay: 0.1s;">
                                 <label for="email" class="block text-sm font-semibold theme-text-muted mb-2">Email Address</label>
                                 <input 
                                     id="email" 
@@ -571,7 +667,7 @@
                                 >
                             </div>
 
-                            <div class="animate-slide-up" style="animation-delay: 0.2s;">
+                            <div class="animate-fade-in-non-displacing" style="animation-delay: 0.2s;">
                                 <label for="password" class="block text-sm font-semibold text-gray-300 mb-2">Password</label>
                                 <input 
                                     id="password" 
@@ -585,7 +681,7 @@
                             </div>
                         </div>
 
-                        <div class="animate-slide-up" style="animation-delay: 0.3s;">
+                        <div class="animate-fade-in-non-displacing" style="animation-delay: 0.3s;">
                             <button 
                                 type="submit" 
                                 id="login-btn"
@@ -643,7 +739,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
     <!-- Main Application Script -->
-    <script type="module" src="./src/app.js"></script>
+    <script type="module" src="./src/app.js?v=20241220005"></script>
 </body>
 </html>
 

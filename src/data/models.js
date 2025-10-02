@@ -9,8 +9,11 @@
  * @typedef {object} Task
  * @property {string} id - The unique ID of the task (Firestore document ID).
  * @property {string} customerId - The name or ID of the customer.
- * @property {string} deliveryAddress - The full address for the delivery.
+ * @property {string} deliveryAddress - The original address entered by the user.
+ * @property {string} [geocodedAddress] - The formatted address returned by geocoding service.
  * @property {import("firebase/firestore").GeoPoint} location - The geographic coordinates for the task location.
+ * @property {string} [geocodingConfidence] - Confidence level of geocoding (high/medium/low).
+ * @property {string} [geocodingVariation] - The address variation that was successfully geocoded.
  * @property {number} demandVolume - The volume of the goods (e.g., in cubic meters or units).
  * @property {import("firebase/firestore").Timestamp} timeWindowStart - The earliest time the task can be performed.
  * @property {import("firebase/firestore").Timestamp} timeWindowEnd - The latest time the task must be completed (the deadline).

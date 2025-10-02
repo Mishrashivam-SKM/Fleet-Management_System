@@ -175,14 +175,37 @@ export const saveOptimizedRoutesAsTripLogs = async (routes, vehicles = []) => {
         const vehicleData = vehicleMap.get(vehicleId);
         const driverEmail = vehicleData?.driverEmail || `driver-${vehicleId}@example.com`; // Fallback email
         
-        // Prepare tasks with their IDs
-        const tasksWithIds = route.steps.filter(step => step.type === 'job').map(step => ({
-             id: step.id.toString(), // Ensure ID is a string
-             customerId: step.description || `Customer-${step.id}`,
-             deliveryAddress: step.location ? `Lat: ${step.location[1]}, Lng: ${step.location[0]}` : 'Unknown location',
-             demandVolume: step.load ? step.load[0] : 0,
-             status: 'assigned'
-        }));
+        // Prepare tasks with their IDs and proper coordinate structure
+        const tasksWithIds = route.steps.filter(step => step.type === 'job').map(step => {
+            // Normalize step.location: supports [lng,lat] or object with lat/lng
+            let lat = null, lng = null;
+            if (Array.isArray(step.location) && step.location.length === 2) {
+                lng = parseFloat(step.location[0]);
+                lat = parseFloat(step.location[1]);
+            } else if (step.location && typeof step.location === 'object') {
+                const s = step.location;
+                const rawLat = s.latitude ?? s.lat;
+                const rawLng = s.longitude ?? s.lng;
+                if (typeof rawLat === 'number' && typeof rawLng === 'number') {
+                    lat = parseFloat(rawLat);
+                    lng = parseFloat(rawLng);
+                }
+            }
+
+            // Pull original task data if present on the step (enriched by optimizer) or fallback strings
+            const originalAddress = step.originalAddress || step.address || step.deliveryAddress || null;
+            const customerName = step.description || step.customerId || `Customer-${step.id}`;
+
+            return ({
+                id: step.id.toString(),
+                customerId: customerName,
+                deliveryAddress: originalAddress || (lat != null && lng != null ? `Lat: ${lat}, Lng: ${lng}` : 'Unknown location'),
+                originalAddress: originalAddress || null,
+                coordinates: (lat != null && lng != null) ? { lat, lng } : null,
+                demandVolume: step.load ? step.load[0] : 0,
+                status: 'assigned'
+            });
+        });
 
         batch.set(driverRouteRef, {
             vehicleId: vehicleId,
@@ -190,6 +213,7 @@ export const saveOptimizedRoutesAsTripLogs = async (routes, vehicles = []) => {
             tasks: tasksWithIds,
             totalDuration: route.duration || 0,
             totalDistance: route.distance || 0,
+            routeStatus: 'active', // Track route completion status
             createdAt: Timestamp.now()
         });
 
@@ -203,6 +227,92 @@ export const saveOptimizedRoutesAsTripLogs = async (routes, vehicles = []) => {
     await batch.commit();
 };
 
+
+// --- Route Management Functions ---
+// Listen for route status changes
+export const listenForRouteChanges = (callback) => {
+    const routesCol = collection(db, 'driver_routes');
+    return onSnapshot(routesCol, (querySnapshot) => {
+        const routes = [];
+        querySnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (!data || !Array.isArray(data.tasks) || data.tasks.length === 0) return;
+            if (data.routeStatus === 'completed') return;
+            routes.push({
+                vehicle: data.vehicleId,
+                distance: data.totalDistance || 0,
+                duration: data.totalDuration || 0,
+                steps: [
+                    { type: 'start', location: [0, 0] },
+                    ...data.tasks.map(task => ({
+                        type: 'job',
+                        id: task.id,
+                        description: task.customerId,
+                        location: task.coordinates ? [task.coordinates.lng, task.coordinates.lat] : null,
+                        load: [task.demandVolume || 0]
+                    })),
+                    { type: 'end', location: [0, 0] }
+                ]
+            });
+        });
+        callback(routes);
+    });
+};
+
+// Load existing routes (non-completed by default)
+export const fetchExistingRoutes = async (includeCompleted = false) => {
+    try {
+        const routesCol = collection(db, 'driver_routes');
+        const querySnapshot = await getDocs(routesCol);
+        const routes = [];
+        querySnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (!data || !Array.isArray(data.tasks) || data.tasks.length === 0) return;
+            if (!includeCompleted && data.routeStatus === 'completed') return;
+            routes.push({
+                vehicle: data.vehicleId,
+                distance: data.totalDistance || 0,
+                duration: data.totalDuration || 0,
+                steps: [
+                    { type: 'start', location: [0, 0] },
+                    ...data.tasks.map(task => ({
+                        type: 'job',
+                        id: task.id,
+                        description: task.customerId,
+                        location: task.coordinates ? [task.coordinates.lng, task.coordinates.lat] : null,
+                        load: [task.demandVolume || 0]
+                    })),
+                    { type: 'end', location: [0, 0] }
+                ]
+            });
+        });
+        return routes;
+    } catch (error) {
+        console.error('Error fetching existing routes:', error);
+        return [];
+    }
+};
+
+// Function to clean up completed routes from dispatcher view
+export const cleanupCompletedRoutes = async () => {
+    try {
+        const routesCol = collection(db, 'driver_routes');
+        const querySnapshot = await getDocs(routesCol);
+        const completedRoutes = [];
+        
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            if (data.routeStatus === 'completed') {
+                completedRoutes.push(doc.id);
+            }
+        });
+        
+        return completedRoutes;
+    } catch (error) {
+        console.error('Error checking completed routes:', error);
+        return [];
+    }
+};
 
 // --- Driver-Specific Functions ---
 export const getDriverRoute = (driverEmail, callback) => {
@@ -280,15 +390,28 @@ export const updateTaskStatus = async (tripLogId, taskId, newStatus) => {
         // If this is part of a route, update the task status in the driver_routes collection
         if (tripLogId) {
             const routeRef = doc(db, 'driver_routes', tripLogId);
-            const routeDoc = await getDocs(query(collection(db, 'driver_routes'), where("vehicleId", "==", tripLogId)));
+            const routeDoc = await getDoc(routeRef);
             
-            if (!routeDoc.empty) {
-                const routeData = routeDoc.docs[0].data();
+            if (routeDoc.exists()) {
+                const routeData = routeDoc.data();
                 const updatedTasks = routeData.tasks.map(task => 
-                    task.id === taskId ? { ...task, status: newStatus } : task
+                    task.id === taskId ? { ...task, status: newStatus, completedAt: completedAt } : task
                 );
                 
-                await updateDoc(routeRef, { tasks: updatedTasks });
+                // Check if all tasks are completed
+                const allCompleted = updatedTasks.every(task => task.status === 'completed');
+                
+                await updateDoc(routeRef, { 
+                    tasks: updatedTasks,
+                    routeStatus: allCompleted ? 'completed' : 'in_progress',
+                    completedAt: allCompleted ? Timestamp.now() : null
+                });
+                
+                // If route is completed, update vehicle status back to idle
+                if (allCompleted && routeData.vehicleId) {
+                    const vehicleRef = doc(db, 'vehicles', routeData.vehicleId);
+                    await updateDoc(vehicleRef, { liveStatus: 'idle' });
+                }
             }
         }
 
@@ -524,11 +647,7 @@ export const fetchCurrentKPIs = async () => {
     }
 };
 
-// Legacy function for compatibility (in case cached version expects it)
-export const fetchLiveTripLogs = async () => {
-    console.warn('fetchLiveTripLogs is deprecated, use fetchDeliveryHistory instead');
-    return await fetchDeliveryHistory();
-};
+
 
 // --- MANUAL SYSTEM RESET FUNCTION ---
 /**

@@ -28,10 +28,13 @@ import {
     fetchCurrentKPIs,
     listenForDeliveryHistory,
     resetAllSystemData,
-    getCurrentUser 
+    getCurrentUser,
+    fetchExistingRoutes,
+    listenForRouteChanges,
+    cleanupCompletedRoutes 
 } from './api/firestoreService.js';
 import { initializeFirestore } from './api/setupFirestore.js';
-import { initializeMap, updateVehicleMarkers, initializeDriverMap, showDriverRoute } from './components/mapView.js';
+import { initializeMap, updateVehicleMarkers, updateTaskMarkers, updateAllMarkers, initializeDriverMap, showDriverRoute } from './components/mapView.js';
 import { renderDispatcherDashboard } from './components/dispatcherDashboard.js';
 import { renderDriverDashboard } from './components/driverDashboard.js';
 import { renderDashboardLayout, initializeDashboardLayout, showLoadingOverlay, hideLoadingOverlay } from './components/DashboardLayout.js';
@@ -43,11 +46,62 @@ import { renderOptimizedRoutes } from './components/RoutesView.js';
 import { optimizeRouteHandler } from './services/optimizationService.js';
 import { renderReports } from './components/ReportsView.js';
 import { startLocationTracking, stopLocationTracking } from './services/locationService.js';
+import { initializeLazyLoading, registerForLazyLoading, addNonDisplacingAnimation } from './utils/lazyLoading.js';
+import { themeManager } from './utils/themeManager.js';
 
 // --- State ---
 let currentUnsubscribes = [];
 let isFirestoreInitialized = false;
 let currentView = null; // 'landing', 'login', 'dashboard', or 'driver'
+let authReadyPromise = null;
+let isAppInitialized = false;
+
+// Global navigation function (available everywhere) - Fixed the main issue!
+window.openExternalNavigation = (destination, originalAddress = null) => {
+    console.log("🗺️ Opening external navigation for:", destination);
+    console.log("📍 Original address:", originalAddress);
+    
+    if (!destination || destination === 'undefined,undefined' || destination === 'null,null') {
+        alert('⚠️ Location not available for this task');
+        return;
+    }
+    
+    // Check if on mobile device
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    let mapsUrl;
+    
+    // Prefer original address for better navigation experience
+    if (originalAddress && originalAddress.trim()) {
+        const encodedAddress = encodeURIComponent(originalAddress.trim());
+        if (isMobile) {
+            mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
+        } else {
+            mapsUrl = `https://www.google.com/maps/search/${encodedAddress}`;
+        }
+        console.log("🏠 Using original address for navigation:", originalAddress);
+    } else if (destination.includes(',') && /^[-\d.]+,\s*[-\d.]+$/.test(destination.trim())) {
+        // Fallback to coordinates format (lat,lng)
+        const [lat, lng] = destination.split(',').map(s => s.trim());
+        if (isMobile) {
+            mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+        } else {
+            mapsUrl = `https://www.google.com/maps/search/${lat},${lng}`;
+        }
+        console.log("📍 Using coordinates for navigation:", destination);
+    } else {
+        // Last resort - treat as address
+        const encodedDestination = encodeURIComponent(destination);
+        if (isMobile) {
+            mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedDestination}`;
+        } else {
+            mapsUrl = `https://www.google.com/maps/search/${encodedDestination}`;
+        }
+    }
+    
+    console.log("🗺️ Opening URL:", mapsUrl);
+    window.open(mapsUrl, '_blank');
+};
 
 // --- Helper Functions ---
 const updateVehicleStatus = async (vehicleId, status) => {
@@ -63,31 +117,129 @@ const updateVehicleStatus = async (vehicleId, status) => {
     }
 };
 
+// --- Loading Animation Functions ---
+const showFirebaseLoading = () => {
+    const loadingScreen = document.getElementById('firebase-loading');
+    const appContainer = document.getElementById('app-container');
+    
+    if (loadingScreen && appContainer) {
+        loadingScreen.classList.remove('hidden');
+        appContainer.style.display = 'none';
+    }
+};
+
+const hideFirebaseLoading = () => {
+    const loadingScreen = document.getElementById('firebase-loading');
+    const appContainer = document.getElementById('app-container');
+    
+    if (loadingScreen && appContainer) {
+        loadingScreen.classList.add('hidden');
+        appContainer.style.display = 'block';
+    }
+};
+
+const updateLoadingProgress = (progress, status) => {
+    const progressBar = document.getElementById('loading-progress');
+    const statusText = document.getElementById('loading-status');
+    
+    if (progressBar) {
+        progressBar.style.width = `${progress}%`;
+    }
+    if (statusText) {
+        statusText.textContent = status;
+    }
+};
+
 // --- Main Application Controller ---
 const main = async () => {
     console.log('🚀 Fleet Command - Application Starting...');
     
-    // Initialize Firebase and theme first
-    initializeFirebase();
-    initializeTheme();
+    // Show loading animation
+    showFirebaseLoading();
+    updateLoadingProgress(10, 'Initializing Firebase...');
     
-    // Initialize Firestore collections if needed
-    await initializeFirebaseCollections();
-    
-    // Set up authentication state listener
-    onAuthStateChangedHandler(handleAuthStateChange);
-    
-    // Check current user and render appropriate view
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-        console.log('👤 User already authenticated:', currentUser.email);
-        await loadDashboard(currentUser);
-    } else {
-        console.log('👋 No authenticated user, showing landing page');
-        loadLandingView();
+    try {
+        // Initialize Firebase and theme first
+        initializeFirebase();
+        updateLoadingProgress(30, 'Configuring theme system...');
+        initializeTheme();
+        
+        updateLoadingProgress(50, 'Setting up database collections...');
+        // Initialize Firestore collections if needed
+        await initializeFirebaseCollections();
+        
+        updateLoadingProgress(70, 'Configuring authentication...');
+        // Set up authentication state listener
+        onAuthStateChangedHandler(handleAuthStateChange);
+        
+        updateLoadingProgress(85, 'Initializing lazy loading...');
+        // Initialize lazy loading system
+        initializeLazyLoading();
+        
+        updateLoadingProgress(90, 'Loading user interface...');
+        
+        // Mark app as initialized BEFORE checking auth state
+        isAppInitialized = true;
+        
+        // Create auth ready promise for synchronization - wait longer for Firebase auth
+        authReadyPromise = new Promise((resolve) => {
+            let hasResolved = false;
+            const resolveOnce = (user) => {
+                if (!hasResolved) {
+                    hasResolved = true;
+                    resolve(user);
+                }
+            };
+            
+            // Set up temporary listener with timeout fallback
+            const unsubscribe = onAuthStateChangedHandler((user) => {
+                console.log('🔐 Initial auth state detected:', user?.email || 'No user');
+                unsubscribe(); // Remove this temporary listener
+                resolveOnce(user);
+            });
+            
+            // Fallback timeout to prevent infinite loading
+            setTimeout(() => {
+                console.log('⏰ Auth state timeout - proceeding without user');
+                resolveOnce(null);
+            }, 5000); // 5 second timeout
+        });
+        
+        // Wait for auth state to be determined
+        const initialUser = await authReadyPromise;
+        
+        // Now set up the permanent auth state listener AFTER initial resolution
+        onAuthStateChangedHandler(handleAuthStateChange);
+        
+        // Handle initial user state with robust loading
+        if (initialUser) {
+            console.log('👤 User already authenticated:', initialUser.email);
+            updateLoadingProgress(95, 'Loading user dashboard...');
+            await loadDashboard(initialUser);
+        } else {
+            console.log('👋 No authenticated user, showing landing page');
+            updateLoadingProgress(95, 'Loading landing page...');
+            loadLandingView();
+        }
+        
+        updateLoadingProgress(100, 'Initialization complete!');
+        
+        // Hide loading screen after a short delay to show completion
+        setTimeout(() => {
+            hideFirebaseLoading();
+        }, 800);
+        
+        console.log('✅ Application initialization complete');
+    } catch (error) {
+        console.error('❌ Application initialization failed:', error);
+        updateLoadingProgress(100, 'Initialization failed. Please refresh.');
+        
+        // Show error and hide loading after delay
+        setTimeout(() => {
+            hideFirebaseLoading();
+            showNotification('Failed to initialize application. Please refresh the page.', 'error');
+        }, 2000);
     }
-    
-    console.log('✅ Application initialization complete');
 };
 
 // --- Firebase Collections Initialization ---
@@ -111,17 +263,33 @@ const initializeFirebaseCollections = async () => {
 };
 
 // --- Authentication State Change Handler ---
-const handleAuthStateChange = (user) => {
+const handleAuthStateChange = async (user) => {
     console.log('🔐 Auth state changed:', user ? user.email : 'No user');
+    
+    // Prevent race conditions - ensure app is fully initialized
+    if (!isAppInitialized) {
+        console.log('⏳ App not ready yet, queuing auth state change...');
+        // Queue this change for when app is ready
+        setTimeout(() => handleAuthStateChange(user), 100);
+        return;
+    }
     
     // Clean up previous listeners and state
     cleanupPreviousListeners();
     
-    if (user) {
-        // User is authenticated - load appropriate dashboard
-        loadDashboard(user);
-    } else {
-        // User is not authenticated - show landing page
+    try {
+        if (user) {
+            // User is authenticated - load appropriate dashboard
+            console.log('👤 Loading dashboard for authenticated user:', user.email);
+            await loadDashboard(user);
+        } else {
+            // User is not authenticated - show landing page
+            console.log('👋 Loading landing page for unauthenticated state');
+            loadLandingView();
+        }
+    } catch (error) {
+        console.error('❌ Error handling auth state change:', error);
+        // Fallback to landing page on error
         loadLandingView();
     }
 };
@@ -271,12 +439,25 @@ const loadLoginView = () => {
 };
 
 /**
- * Loads the appropriate dashboard based on user role
+ * Loads the appropriate dashboard based on user role with enhanced persistence
  */
 const loadDashboard = async (user) => {
     const userRole = getUserRole(user.email);
     
-    if (currentView === `dashboard-${userRole}`) return; // Avoid re-rendering
+    if (currentView === `dashboard-${userRole}`) {
+        console.log(`📊 Dashboard already loaded for ${userRole}, refreshing data...`);
+        // Refresh data instead of skipping
+        try {
+            if (userRole === 'dispatcher') {
+                await refreshDispatcherData();
+            } else {
+                await refreshDriverData(user.email);
+            }
+        } catch (error) {
+            console.error('❌ Error refreshing dashboard data:', error);
+        }
+        return;
+    }
     
     console.log(`📊 Loading ${userRole} Dashboard for:`, user.email);
     currentView = `dashboard-${userRole}`;
@@ -293,16 +474,41 @@ const loadDashboard = async (user) => {
     loginContainer.classList.add('hidden');
     appRoot.classList.remove('hidden');
     
-    // Clear previous content
-    appRoot.innerHTML = '';
+    // Show loading state while loading dashboard
+    appRoot.innerHTML = `
+        <div class="flex items-center justify-center min-h-screen bg-gray-900">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+                <p class="text-gray-300">Loading ${userRole} dashboard...</p>
+            </div>
+        </div>
+    `;
     
-    if (userRole === 'dispatcher') {
-        await loadDispatcherDashboard(user);
-    } else {
-        await loadDriverDashboard(user);
+    try {
+        if (userRole === 'dispatcher') {
+            await loadDispatcherDashboard(user);
+        } else {
+            await loadDriverDashboard(user);
+        }
+        
+        console.log(`✅ ${userRole} Dashboard loaded successfully`);
+    } catch (error) {
+        console.error(`❌ Error loading ${userRole} dashboard:`, error);
+        
+        // Show error state
+        appRoot.innerHTML = `
+            <div class="flex items-center justify-center min-h-screen bg-gray-900">
+                <div class="text-center p-6 bg-gray-800 rounded-lg border border-red-500">
+                    <div class="text-red-400 text-4xl mb-4">⚠️</div>
+                    <h2 class="text-xl font-semibold text-red-400 mb-2">Dashboard Loading Failed</h2>
+                    <p class="text-gray-300 mb-4">Unable to load dashboard data. This might be a connectivity issue.</p>
+                    <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors">
+                        Refresh Page
+                    </button>
+                </div>
+            </div>
+        `;
     }
-    
-    console.log(`✅ ${userRole} Dashboard loaded successfully`);
 };
 
 /**
@@ -327,6 +533,34 @@ const loadDriverDashboard = async (user) => {
     appRoot.innerHTML = renderDriverLayout(user.email, dashboardContent);
     initializeDriverLayout(handleSignOut, handleLocationToggle);
     await setupDriverDashboard(user.email);
+};
+
+// --- Data Refresh Functions for Persistence ---
+
+/**
+ * Refresh dispatcher dashboard data after authentication
+ */
+const refreshDispatcherData = async () => {
+    console.log('🔄 Refreshing dispatcher dashboard data...');
+    try {
+        // Re-setup dispatcher dashboard to reload all data
+        await setupDispatcherDashboard();
+    } catch (error) {
+        console.error('❌ Error refreshing dispatcher data:', error);
+    }
+};
+
+/**
+ * Refresh driver dashboard data after authentication
+ */
+const refreshDriverData = async (userEmail) => {
+    console.log('🔄 Refreshing driver dashboard data for:', userEmail);
+    try {
+        // Re-setup driver dashboard to reload route data
+        await setupDriverDashboard(userEmail);
+    } catch (error) {
+        console.error('❌ Error refreshing driver data:', error);
+    }
 };
 
 // --- Event Handlers ---
@@ -432,36 +666,159 @@ const getUserRole = (email) => {
 
 // --- Dashboard Setups ---
 const setupDispatcherDashboard = async () => {
+    console.log("🔧 Starting dispatcher dashboard setup...");
+    
     try {
-        // Wait for DOM to be ready before initializing map
+        // Ensure Firebase is ready before setting up listeners
+        console.log("📋 Checking Firebase readiness...");
+        const currentUser = getCurrentUser();
+        console.log("👤 Current user:", currentUser ? currentUser.email : "None");
+        
+        // Wait a bit longer to ensure Firebase collections are initialized
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Initialize map with lazy loading
         setTimeout(() => {
             try {
-                console.log("Initializing map for dispatcher dashboard...");
+                console.log("Setting up lazy loading for dispatcher map...");
                 const mapContainer = document.getElementById('map-container');
                 if (!mapContainer) {
                     console.error("Map container 'map-container' not found in DOM");
                     return;
                 }
-                initializeMap('map-container');
-                console.log("Map initialized successfully");
+                
+                // Set up lazy loading for the map
+                mapContainer.dataset.lazyComponent = 'map';
+                registerForLazyLoading(mapContainer);
+                console.log("Map lazy loading registered successfully");
             } catch (mapError) {
-                console.error("Error initializing map:", mapError);
-            }
-        }, 500);
-        
-        // Set up real-time listeners
-        const taskUnsubscribe = listenForPendingTasks(renderPendingTasks);
-        const vehicleUnsubscribe = fetchLiveVehicles((vehicles) => {
-            renderVehicleList(vehicles);
-            // Update map markers only if map is initialized
-            setTimeout(() => {
+                console.error("Error setting up map lazy loading:", mapError);
+                // Fallback to direct initialization
                 try {
-                    updateVehicleMarkers(vehicles);
-                } catch (error) {
-                    console.log("Map not ready for vehicle markers yet, will try again");
+                    initializeMap('map-container');
+                } catch (fallbackError) {
+                    console.error("Fallback map initialization also failed:", fallbackError);
                 }
-            }, 1000);
+            }
+        }, 100);
+        
+        // Set up real-time listeners with timeout fallbacks
+        console.log("Setting up Firebase listeners for tasks and vehicles...");
+        
+        // Set up tasks listener with timeout
+        let tasksLoaded = false;
+        let currentTasks = [];
+        const taskUnsubscribe = listenForPendingTasks((tasks) => {
+            tasksLoaded = true;
+            currentTasks = tasks;
+            window.currentTasks = tasks; // Store globally for optimization refresh
+            console.log("Tasks loaded:", tasks.length, "tasks");
+            renderPendingTasks(tasks);
+            // Update map with both vehicles and tasks
+            updateMapWithAllData();
         });
+        
+        // Fallback for tasks if not loaded within 3 seconds
+        setTimeout(async () => {
+            if (!tasksLoaded) {
+                console.warn("Tasks not loaded within 3 seconds, trying direct fetch...");
+                try {
+                    const { fetchPendingTasks } = await import('./api/firestoreService.js');
+                    const tasks = await fetchPendingTasks();
+                    console.log("📋 Direct fetch got", tasks.length, "tasks");
+                    tasksLoaded = true;
+                    currentTasks = tasks;
+                    renderPendingTasks(tasks);
+                    updateMapWithAllData();
+                } catch (error) {
+                    console.error("❌ Direct task fetch failed:", error);
+                    const container = document.getElementById('pending-tasks-list');
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="text-center py-4 text-red-500">
+                                <p class="text-sm">❌ Failed to load tasks</p>
+                                <p class="text-xs text-gray-400 mt-1">Error: ${error.message}</p>
+                            </div>
+                        `;
+                    }
+                }
+            }
+        }, 3000);
+        
+        // Set up vehicles listener with timeout
+        let vehiclesLoaded = false;
+        let currentVehicles = [];
+        const vehicleUnsubscribe = fetchLiveVehicles((vehicles) => {
+            vehiclesLoaded = true;
+            currentVehicles = vehicles;
+            console.log("Vehicles loaded:", vehicles.length, "vehicles");
+            renderVehicleList(vehicles);
+            // Update map with both vehicles and tasks
+            updateMapWithAllData();
+        });
+
+        // Function to update map with all current data
+        function updateMapWithAllData() {
+            // Wait for map container to be fully ready
+            const mapContainer = document.getElementById('map-container');
+            if (!mapContainer) {
+                console.log("Map container not found, skipping marker update");
+                return;
+            }
+            
+            // Check if map is initialized by looking for leaflet-container class
+            const checkMapReady = () => {
+                if (mapContainer.classList.contains('leaflet-container')) {
+                    try {
+                        console.log(`🗺️ Updating map with ${currentVehicles.length} vehicles and ${currentTasks.length} tasks`);
+                        updateAllMarkers(currentVehicles, currentTasks);
+                    } catch (error) {
+                        console.warn("Error updating markers:", error);
+                    }
+                } else {
+                    // Map not ready, try again in 500ms
+                    console.log("Map not initialized yet, retrying in 500ms...");
+                    setTimeout(checkMapReady, 500);
+                }
+            };
+            
+            // Start checking after a short delay to allow map container to initialize
+            setTimeout(checkMapReady, 500);
+        }
+        
+        // Fallback for vehicles if not loaded within 3 seconds  
+        setTimeout(async () => {
+            if (!vehiclesLoaded) {
+                console.warn("Vehicles not loaded within 3 seconds, trying direct fetch...");
+                try {
+                    // Create a direct fetch function for vehicles
+                    const { getFirestore, collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+                    const db = getFirestore();
+                    const vehiclesCol = collection(db, 'vehicles');
+                    const querySnapshot = await getDocs(vehiclesCol);
+                    const vehicles = [];
+                    querySnapshot.forEach((doc) => {
+                        vehicles.push({ id: doc.id, ...doc.data() });
+                    });
+                    console.log("🚛 Direct fetch got", vehicles.length, "vehicles");
+                    vehiclesLoaded = true;
+                    currentVehicles = vehicles;
+                    renderVehicleList(vehicles);
+                    updateMapWithAllData();
+                } catch (error) {
+                    console.error("❌ Direct vehicle fetch failed:", error);
+                    const container = document.getElementById('fleet-list');
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="text-center py-4 text-red-500">
+                                <p class="text-sm">❌ Failed to load fleet</p>
+                                <p class="text-xs text-gray-400 mt-1">Error: ${error.message}</p>
+                            </div>
+                        `;
+                    }
+                }
+            }
+        }, 3000);
         
         // Add real-time delivery history listener
         const deliveryHistoryUnsubscribe = listenForDeliveryHistory((deliveries) => {
@@ -472,7 +829,22 @@ const setupDispatcherDashboard = async () => {
             }
         });
         
-        currentUnsubscribes.push(taskUnsubscribe, vehicleUnsubscribe, deliveryHistoryUnsubscribe);
+        // Check if listeners were successfully created
+        if (taskUnsubscribe) {
+            currentUnsubscribes.push(taskUnsubscribe);
+        } else {
+            console.error("Failed to create task listener");
+        }
+        
+        if (vehicleUnsubscribe) {
+            currentUnsubscribes.push(vehicleUnsubscribe);
+        } else {
+            console.error("Failed to create vehicle listener");
+        }
+        
+        if (deliveryHistoryUnsubscribe) {
+            currentUnsubscribes.push(deliveryHistoryUnsubscribe);
+        }
     } catch (error) {
         console.error("Error setting up dispatcher dashboard:", error);
         // Show error to user
@@ -491,6 +863,24 @@ const setupDispatcherDashboard = async () => {
     
     // Load initial delivery history
     loadDeliveryHistory();
+    
+    // Load existing routes on dashboard initialization
+    loadExistingRoutes();
+    
+    // Set up real-time route status listener for dispatcher
+    const routeStatusUnsubscribe = listenForRouteChanges((routes) => {
+        console.log('📊 Route status changed, updating display:', routes.length);
+        renderOptimizedRoutes(routes);
+        
+        const statusEl = document.getElementById('optimization-status');
+        if (statusEl && routes.length > 0) {
+            statusEl.textContent = `✅ ${routes.length} active routes (auto-updated)`;
+        }
+    });
+    
+    if (routeStatusUnsubscribe) {
+        currentUnsubscribes.push(routeStatusUnsubscribe);
+    }
 
     // Add system status monitoring (for debugging)
     setInterval(() => {
@@ -537,8 +927,15 @@ const setupDriverDashboard = async (driverEmail) => {
     let currentVehicleId = null;
     
     // Setup a real-time listener for the driver's route
-    const unsubscribe = getDriverRoute(driverEmail, (route) => {
+    const routeCallback = (route) => {
         console.log("Route callback received for driver:", driverEmail, route ? "Route found" : "No route");
+        
+        // Store for potential refresh needs
+        window.lastDriverRoute = route;
+        window.currentDriverRouteCallback = routeCallback;
+        
+        // Store the driver email for cleanup
+        window.currentDriverEmail = driverEmail;
         
         // Wait a bit to ensure DOM is ready
         setTimeout(() => {
@@ -600,7 +997,9 @@ const setupDriverDashboard = async (driverEmail) => {
                 }
             }
         }, 100); // Small delay to ensure DOM is ready
-    });
+    };
+    
+    const unsubscribe = getDriverRoute(driverEmail, routeCallback);
     
     if (unsubscribe) {
         currentUnsubscribes.push(unsubscribe);
@@ -700,18 +1099,36 @@ const renderPendingTasks = (tasks) => {
     if (!container) return;
     container.innerHTML = tasks.length === 0 
         ? '<p class="text-gray-500">No pending tasks.</p>'
-        : tasks.map(task => `
-            <li class="flex justify-between items-center p-2 bg-gray-700 rounded text-white">
-                <div>
-                    <span class="font-semibold">${task.customerId}</span>
-                    <span class="text-sm text-gray-400">(Vol: ${task.demandVolume})</span>
-                </div>
-                <div>
-                    <button class="edit-task-btn text-indigo-400 hover:text-indigo-300 text-sm mr-2" data-task-id="${task.id}">Edit</button>
-                    <button class="delete-task-btn text-red-400 hover:text-red-300 text-sm" data-task-id="${task.id}">Del</button>
+        : tasks.map(task => {
+            // Geocoding confidence indicator
+            let geocodingBadge = '';
+            if (task.geocodingConfidence) {
+                const confidenceColor = task.geocodingConfidence === 'high' ? 'bg-green-500' : 
+                                       task.geocodingConfidence === 'medium' ? 'bg-yellow-500' : 'bg-red-500';
+                const confidenceIcon = task.geocodingConfidence === 'high' ? '✓' : 
+                                      task.geocodingConfidence === 'medium' ? '⚠' : '!';
+                geocodingBadge = `<span class="${confidenceColor} text-white text-xs px-1 py-0.5 rounded ml-1" title="Geocoding confidence: ${task.geocodingConfidence}">${confidenceIcon}</span>`;
+            }
+            
+            return `
+            <li class="p-4 theme-card rounded-lg shadow mb-3">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center mb-2">
+                            <span class="font-semibold theme-text-primary">${task.customerId}</span>
+                            <span class="text-sm theme-text-secondary ml-2">(Vol: ${task.demandVolume})</span>
+                            ${geocodingBadge}
+                        </div>
+                        <p class="text-sm theme-text-secondary">${task.originalAddress || task.deliveryAddress}</p>
+                    </div>
+                    <div class="flex space-x-2 ml-4">
+                        <button class="edit-task-btn text-blue-500 hover:text-blue-600 text-sm px-3 py-1.5 border border-blue-500 rounded-md transition-colors" data-task-id="${task.id}">Edit</button>
+                        <button class="delete-task-btn text-red-500 hover:text-red-600 text-sm px-3 py-1.5 border border-red-500 rounded-md transition-colors" data-task-id="${task.id}">Delete</button>
+                    </div>
                 </div>
             </li>
-        `).join('');
+            `;
+        }).join('');
     
     document.querySelectorAll('.edit-task-btn').forEach(btn => btn.addEventListener('click', (e) => handleEditTask(e, tasks)));
     document.querySelectorAll('.delete-task-btn').forEach(btn => btn.addEventListener('click', handleDeleteTask));
@@ -737,29 +1154,29 @@ const renderVehicleList = (vehicles) => {
                 'Never';
             
             return `
-                <li class="p-3 bg-gray-700 rounded text-white mb-2">
-                    <div class="flex justify-between items-start mb-2">
+                <li class="p-4 theme-card rounded-lg shadow mb-3">
+                    <div class="flex justify-between items-start mb-3">
                         <div>
-                            <span class="font-semibold text-lg">${v.id}</span>
-                            <span class="text-sm text-gray-400 ml-2">(${v.driverName})</span>
+                            <span class="font-semibold text-lg theme-text-primary">${v.id}</span>
+                            <span class="text-sm theme-text-secondary ml-2">(${v.driverName})</span>
                         </div>
                         <div class="flex space-x-2">
-                            <button class="edit-vehicle-btn text-indigo-400 hover:text-indigo-300 text-xs px-2 py-1 border border-indigo-400 rounded" data-vehicle-id="${v.id}">Edit</button>
-                            <button class="delete-vehicle-btn text-red-400 hover:text-red-300 text-xs px-2 py-1 border border-red-400 rounded" data-vehicle-id="${v.id}">Del</button>
+                            <button class="edit-vehicle-btn text-blue-500 hover:text-blue-600 text-xs px-3 py-1.5 border border-blue-500 rounded-md transition-colors" data-vehicle-id="${v.id}">Edit</button>
+                            <button class="delete-vehicle-btn text-red-500 hover:text-red-600 text-xs px-3 py-1.5 border border-red-500 rounded-md transition-colors" data-vehicle-id="${v.id}">Delete</button>
                         </div>
                     </div>
-                    <div class="text-xs space-y-1">
-                        <div class="flex justify-between">
-                            <span>Status:</span>
-                            <span class="${statusColor} font-semibold">${v.liveStatus || 'idle'}</span>
+                    <div class="text-sm space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="theme-text-secondary">Status:</span>
+                            <span class="${statusColor} font-semibold px-2 py-1 rounded text-xs">${v.liveStatus || 'idle'}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span>Location:</span>
-                            <span class="text-gray-400 text-xs">${locationText}</span>
+                            <span class="theme-text-secondary">Location:</span>
+                            <span class="theme-text-muted text-xs">${locationText}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span>Last Update:</span>
-                            <span class="text-gray-500">${lastUpdate}</span>
+                            <span class="theme-text-secondary">Last Update:</span>
+                            <span class="theme-text-muted text-xs">${lastUpdate}</span>
                         </div>
                     </div>
                 </li>
@@ -783,38 +1200,93 @@ const renderDriverTasks = (tasks, tripLogId) => {
     const totalTasks = tasks.length;
     const allCompleted = completedTasks === totalTasks;
 
-    // Initialize driver map after DOM is ready
+    // Prepare route object that will be shared with map and instructions
+    let route = {
+        tasks: tasks.map(task => {
+            // Normalize coordinates from multiple possible shapes
+            let coordinates = null;
+            if (task.coordinates && typeof task.coordinates.lat === 'number' && typeof task.coordinates.lng === 'number') {
+                coordinates = { lat: task.coordinates.lat, lng: task.coordinates.lng };
+            } else if (task.location && (task.location.latitude !== undefined && task.location.longitude !== undefined)) {
+                const lat = typeof task.location.latitude === 'function' ? task.location.latitude() : task.location.latitude;
+                const lng = typeof task.location.longitude === 'function' ? task.location.longitude() : task.location.longitude;
+                if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+                    coordinates = { lat, lng };
+                }
+            } else if (task.deliveryLocation && (task.deliveryLocation.latitude !== undefined && task.deliveryLocation.longitude !== undefined)) {
+                const lat = typeof task.deliveryLocation.latitude === 'function' ? task.deliveryLocation.latitude() : task.deliveryLocation.latitude;
+                const lng = typeof task.deliveryLocation.longitude === 'function' ? task.deliveryLocation.longitude() : task.deliveryLocation.longitude;
+                if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+                    coordinates = { lat, lng };
+                }
+            }
+
+            // Preserve original address if available for better Maps navigation
+            const originalAddress = task.originalAddress || task.deliveryAddress || task.geocodedAddress || '';
+
+            return {
+                id: task.id,
+                customerId: task.customerId, // User-entered customer name
+                customerName: task.customerId, // For backward compatibility
+                address: originalAddress,
+                originalAddress,
+                coordinates,
+                status: task.status
+            };
+        })
+    };
+    
+    console.log("🐛 DEBUG: Route object prepared for driver:", route);
+    console.log("🐛 DEBUG: Sample task:", route.tasks[0]);
+
+    // Initialize driver map after DOM is ready with lazy loading
     setTimeout(() => {
         try {
+            console.log("Setting up lazy loading for driver map...");
+            const driverMapContainer = document.getElementById('driver-map-container');
+            if (driverMapContainer) {
+                // Apply non-displacing animation to prevent layout shift
+                addNonDisplacingAnimation(driverMapContainer, 'fade-in');
+            }
+            
             console.log("Initializing driver map...");
             const driverMap = initializeDriverMap();
             
-            // Convert tasks to route format for map display
-            const route = {
-                tasks: tasks.map(task => ({
-                    id: task.id,
-                    customerName: task.customerId,
-                    address: task.deliveryAddress,
-                    coordinates: task.coordinates,
-                    status: task.status
-                }))
-            };
+            // route already prepared above
             
             // Show route on map (will get current location automatically)
             if (navigator.geolocation) {
+                console.log("🌍 Requesting geolocation permission...");
                 navigator.geolocation.getCurrentPosition((position) => {
                     const currentLocation = {
                         lat: position.coords.latitude,
                         lng: position.coords.longitude
                     };
-                    console.log("Current location:", currentLocation);
+                    console.log("🎯 Current location obtained:", currentLocation);
                     showDriverRoute(route, currentLocation);
                 }, (error) => {
-                    console.log("Could not get current location, showing route without current position");
-                    showDriverRoute(route, null);
+                    console.warn("⚠️ Geolocation error:", error.message);
+                    console.log("📍 Using fallback location (Thane, Mumbai)");
+                    // Use Thane as fallback location (more accurate for demo)
+                    const fallbackLocation = { lat: 19.2183, lng: 72.9781 };
+                    showDriverRoute(route, fallbackLocation);
+                    
+                    // Force map to show markers even without precise location
+                    setTimeout(() => {
+                        if (route.tasks && route.tasks.length > 0) {
+                            const validTasks = route.tasks.filter(t => t.coordinates);
+                            console.log(`🗺️ Ensuring ${validTasks.length} task markers are visible`);
+                        }
+                    }, 1000);
+                }, {
+                    enableHighAccuracy: false, // More forgiving for demo
+                    timeout: 5000, // Shorter timeout
+                    maximumAge: 300000 // 5 minutes cache
                 });
             } else {
-                showDriverRoute(route, null);
+                console.warn("⚠️ Geolocation not supported, using fallback location");
+                const fallbackLocation = { lat: 19.2183, lng: 72.9781 };
+                showDriverRoute(route, fallbackLocation);
             }
         } catch (error) {
             console.error("Error initializing driver map:", error);
@@ -823,35 +1295,108 @@ const renderDriverTasks = (tasks, tripLogId) => {
     
     // Progress bar
     const progressHtml = `
-        <div class="mb-4 bg-gray-700 rounded-lg p-3">
-            <div class="flex justify-between text-sm mb-2">
-                <span class="text-gray-300">Progress</span>
-                <span class="text-gray-300">${completedTasks}/${totalTasks} completed</span>
+        <div class="mb-4 theme-card rounded-lg p-4">
+            <div class="flex justify-between text-sm mb-3">
+                <span class="theme-text-primary font-medium">Delivery Progress</span>
+                <span class="theme-text-secondary font-medium">${completedTasks}/${totalTasks} completed</span>
             </div>
-            <div class="w-full bg-gray-600 rounded-full h-2">
-                <div class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: ${(completedTasks/totalTasks)*100}%"></div>
+            <div class="w-full bg-gray-300 dark:bg-gray-600 rounded-full h-3">
+                <div class="bg-green-500 h-3 rounded-full transition-all duration-500 ease-out" style="width: ${totalTasks > 0 ? (completedTasks/totalTasks)*100 : 0}%"></div>
             </div>
+            ${totalTasks > 0 ? `<p class="text-xs theme-text-muted mt-2">${Math.round((completedTasks/totalTasks)*100)}% complete</p>` : ''}
         </div>
     `;
     
-    const tasksHtml = tasks.map((task, index) => `
-        <div class="bg-gray-700 p-4 rounded-lg shadow mb-3 text-white ${task.status === 'completed' ? 'opacity-75' : ''}">
-            <h4 class="font-bold text-lg">${index + 1}. ${task.customerId}</h4>
-            <p class="text-sm text-gray-400">${task.deliveryAddress}</p>
-            <p class="text-sm text-gray-400">Volume: ${task.demandVolume}</p>
-            <div class="mt-2">
+    const tasksHtml = tasks.map((task, index) => {
+        // Extract coordinates for display (same logic as used for map)
+        let coordinates = null;
+        let coordinateDisplay = 'Location: Not available';
+        
+        console.log(`🔍 Debugging coordinates for task ${task.id}:`, task);
+        
+        // Try different coordinate sources with comprehensive validation
+        if (task.coordinates && typeof task.coordinates.lat === 'number' && typeof task.coordinates.lng === 'number' && 
+            !isNaN(task.coordinates.lat) && !isNaN(task.coordinates.lng) && 
+            task.coordinates.lat >= -90 && task.coordinates.lat <= 90 && 
+            task.coordinates.lng >= -180 && task.coordinates.lng <= 180) {
+            coordinates = task.coordinates;
+            console.log(`✅ Found valid coordinates in task.coordinates:`, coordinates);
+        } else if (task.location && task.location.latitude !== undefined && task.location.longitude !== undefined) {
+            // Handle Firebase GeoPoint or plain object
+            const lat = typeof task.location.latitude === 'function' ? task.location.latitude() : task.location.latitude;
+            const lng = typeof task.location.longitude === 'function' ? task.location.longitude() : task.location.longitude;
+            
+            if (typeof lat === 'number' && typeof lng === 'number' && 
+                !isNaN(lat) && !isNaN(lng) &&
+                lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                coordinates = { lat, lng };
+                console.log(`✅ Found valid coordinates in task.location:`, coordinates);
+            }
+        } else if (task.deliveryLocation && task.deliveryLocation.latitude !== undefined && task.deliveryLocation.longitude !== undefined) {
+            // Handle alternative location format
+            const lat = typeof task.deliveryLocation.latitude === 'function' ? task.deliveryLocation.latitude() : task.deliveryLocation.latitude;
+            const lng = typeof task.deliveryLocation.longitude === 'function' ? task.deliveryLocation.longitude() : task.deliveryLocation.longitude;
+            
+            if (typeof lat === 'number' && typeof lng === 'number' && 
+                !isNaN(lat) && !isNaN(lng) &&
+                lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                coordinates = { lat, lng };
+                console.log(`✅ Found valid coordinates in task.deliveryLocation:`, coordinates);
+            }
+        } else {
+            const coordMatch = task.deliveryAddress?.match(/Lat:\s*([-\d.]+),\s*Lng:\s*([-\d.]+)/);
+            if (coordMatch) {
+                const lat = parseFloat(coordMatch[1]);
+                const lng = parseFloat(coordMatch[2]);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    coordinates = { lat, lng };
+                    console.log(`✅ Extracted valid coordinates from deliveryAddress:`, coordinates);
+                }
+            }
+            
+            if (!coordinates) {
+                console.warn(`⚠️ No valid coordinates found for task ${task.id}. Address: ${task.deliveryAddress}. Available fields:`, Object.keys(task));
+            }
+        }
+        
+        // Prefer original address for display (cleaner UI)
+        const displayAddress = task.originalAddress || task.deliveryAddress;
+        
+        return `
+        <div class="theme-card p-4 rounded-lg shadow mb-3 ${task.status === 'completed' ? 'opacity-75' : ''}">
+            <div class="flex justify-between items-start mb-2">
+                <div class="flex-1">
+                    <h4 class="font-bold text-lg theme-text-primary">${index + 1}. ${task.customerId}</h4>
+                    <p class="text-sm theme-text-secondary mt-1">${displayAddress}</p>
+                    <p class="text-xs theme-text-muted">Volume: ${task.demandVolume}</p>
+                </div>
+                <div class="ml-2">
+                    ${task.status === 'completed' 
+                        ? '<span class="text-green-500 font-semibold text-sm">✅ Done</span>'
+                        : '<span class="text-yellow-500 font-semibold text-sm">⏳ Pending</span>'
+                    }
+                </div>
+            </div>
+            <div class="mt-3 flex gap-2">
                 ${task.status === 'completed' 
-                    ? '<span class="text-green-400 font-semibold">✅ Completed!</span>'
-                    : `<button class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 mark-complete-btn" data-task-id="${task.id}" data-trip-log-id="${tripLogId}">📦 Mark as Delivered</button>`
+                    ? ''
+                    : `<button class="flex-1 bg-green-600 text-white py-2 px-3 rounded hover:bg-green-700 transition-colors mark-complete-btn" data-task-id="${task.id}" data-trip-log-id="${tripLogId}">📦 Mark as Delivered</button>`
+                }
+                ${displayAddress ? 
+                    `<button onclick="window.openExternalNavigation('${coordinates?.lat || ''},${coordinates?.lng || ''}', '${displayAddress.replace(/'/g, "\\'")}')" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm transition-colors">
+                        🗺️ Navigate
+                    </button>` : ''
                 }
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
     
-    const completionMessage = allCompleted ? `
-        <div class="bg-green-600 text-white p-4 rounded-lg mb-4 text-center">
+    const completionMessage = allCompleted && totalTasks > 0 ? `
+        <div class="bg-green-600 text-white p-4 rounded-lg mb-4 text-center border border-green-500">
             <h3 class="text-xl font-bold mb-2">🎉 All Deliveries Complete!</h3>
-            <p class="text-sm">Great job! All tasks have been delivered. Location tracking will stop automatically.</p>
+            <p class="text-sm opacity-90">Excellent work! All ${totalTasks} tasks have been delivered successfully.</p>
         </div>
     ` : '';
     
@@ -871,24 +1416,7 @@ const renderDriverTasks = (tasks, tripLogId) => {
         }
     };
     
-    // Make external navigation function globally available
-    window.openExternalNavigation = (address) => {
-        // Encode the address for URL
-        const encodedAddress = encodeURIComponent(address);
-        
-        // Check if on mobile device
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        if (isMobile) {
-            // Try to open in native maps app
-            const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
-            window.open(googleMapsUrl, '_blank');
-        } else {
-            // Open in Google Maps web version
-            const webMapsUrl = `https://www.google.com/maps/search/${encodedAddress}`;
-            window.open(webMapsUrl, '_blank');
-        }
-    };
+    // Navigation function already defined globally at the top
     
     // Update driver location on map in real-time
     window.updateDriverLocationOnMap = (newLocation) => {
@@ -926,6 +1454,16 @@ const handleMarkComplete = async (e) => {
         } catch (error) {
             console.error('Error refreshing KPIs:', error);
         }
+        
+        // Refresh the driver task display to reflect completion
+        console.log('🔄 Refreshing task display after completion...');
+        setTimeout(() => {
+            // The real-time listener should automatically update, but force refresh if needed
+            const routeCallback = window.currentDriverRouteCallback;
+            if (routeCallback && window.lastDriverRoute) {
+                routeCallback(window.lastDriverRoute);
+            }
+        }, 1000);
         
         // Check if all tasks are completed
         setTimeout(() => {
@@ -1122,6 +1660,30 @@ const handleOptimization = async () => {
     }
 };
 
+// Load existing routes from Firebase and display them
+const loadExistingRoutes = async () => {
+    try {
+        const existingRoutes = await fetchExistingRoutes(false); // Exclude completed routes
+        if (existingRoutes && existingRoutes.length > 0) {
+            console.log('📊 Loading existing active routes:', existingRoutes.length);
+            renderOptimizedRoutes(existingRoutes);
+            
+            const statusEl = document.getElementById('optimization-status');
+            if (statusEl) {
+                statusEl.textContent = `✅ ${existingRoutes.length} active routes loaded`;
+            }
+        } else {
+            console.log('📊 No active routes found');
+            const statusEl = document.getElementById('optimization-status');
+            if (statusEl) {
+                statusEl.textContent = 'No active routes - create tasks and optimize to begin';
+            }
+        }
+    } catch (error) {
+        console.error('Error loading existing routes:', error);
+    }
+};
+
 // Handle complete system reset
 const handleCompleteSystemReset = async () => {
     const confirmed = confirm(
@@ -1168,6 +1730,9 @@ const cleanupPreviousListeners = () => {
     
     // Clean up driver dashboard state
     window.driverDashboardActive = null;
+    window.lastDriverRoute = null;
+    window.currentDriverRouteCallback = null;
+    window.currentDriverEmail = null;
     if (window.activeLocationTracker) {
         window.activeLocationTracker.stop();
         window.activeLocationTracker = null;
@@ -1189,7 +1754,7 @@ const renderDeliveryHistory = (deliveries) => {
     if (!container) return;
 
     if (deliveries.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-center py-4">No deliveries found for this period.</p>';
+        container.innerHTML = '<p class="theme-text-muted text-center py-4">No deliveries found for this period.</p>';
         return;
     }
 
@@ -1211,19 +1776,19 @@ const renderDeliveryHistory = (deliveries) => {
         }
         
         return `
-            <div class="bg-gray-700 p-3 rounded-lg mb-2 border-l-4 ${delivery.isOnTime ? 'border-green-400' : 'border-red-400'}">
+            <div class="theme-card p-4 rounded-lg mb-3 border-l-4 ${delivery.isOnTime ? 'border-green-500' : 'border-red-500'}">
                 <div class="flex justify-between items-start">
                     <div class="flex-grow">
-                        <div class="font-semibold text-white mb-1">${delivery.customerId}</div>
-                        <div class="text-sm text-gray-300 mb-1">Vehicle: ${delivery.vehicleId}</div>
-                        <div class="text-xs text-gray-400">Completed: ${completedTime.toLocaleString()}</div>
-                        <div class="text-xs text-gray-400">${timeDetail}</div>
+                        <div class="font-semibold theme-text-primary mb-2">${delivery.customerId}</div>
+                        <div class="text-sm theme-text-secondary mb-1">Vehicle: ${delivery.vehicleId}</div>
+                        <div class="text-xs theme-text-muted">Completed: ${completedTime.toLocaleString()}</div>
+                        <div class="text-xs theme-text-muted">${timeDetail}</div>
                     </div>
-                    <div class="text-right flex-shrink-0 ml-3">
-                        <div class="px-2 py-1 rounded-full text-xs font-medium mb-1 ${statusBgColor} ${statusTextColor}">
+                    <div class="text-right flex-shrink-0 ml-4">
+                        <div class="px-3 py-1 rounded-full text-xs font-medium mb-2 ${statusBgColor} ${statusTextColor}">
                             ${statusIcon} ${delivery.isOnTime ? 'On Time' : 'Late'}
                         </div>
-                        <div class="text-sm text-gray-400">${delivery.demandVolume} units</div>
+                        <div class="text-sm theme-text-secondary">${delivery.demandVolume} units</div>
                     </div>
                 </div>
             </div>
@@ -1239,84 +1804,9 @@ window.updateKPIDisplay = (kpis) => {
     console.log('📊 KPI display updated:', kpis);
 };
 
-// === UNIFIED THEME MANAGEMENT SYSTEM ===
-const initializeTheme = () => {
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    const body = document.body;
-    
-    // Apply saved theme
-    body.classList.remove('dark', 'light');
-    body.classList.add(savedTheme);
-    
-    console.log(`🎨 Theme initialized: ${savedTheme.toUpperCase()} mode`);
-    
-    // Update any existing theme toggles
-    updateAllThemeToggles(savedTheme === 'dark');
-};
-
-const initializeThemeToggle = () => {
-    // Find all theme toggle buttons and attach unified handler
-    const themeToggles = document.querySelectorAll('#theme-toggle, #nav-theme-toggle');
-    themeToggles.forEach(toggle => {
-        if (toggle && !toggle.hasAttribute('data-theme-initialized')) {
-            toggle.addEventListener('click', toggleTheme);
-            toggle.setAttribute('data-theme-initialized', 'true');
-        }
-    });
-};
-
-const toggleTheme = () => {
-    const body = document.body;
-    const isDarkMode = body.classList.contains('dark');
-    
-    if (isDarkMode) {
-        // Switch to Light Mode
-        body.classList.remove('dark');
-        body.classList.add('light');
-        localStorage.setItem('theme', 'light');
-        updateAllThemeToggles(false);
-        console.log('🌞 GLOBAL: Switched to Light Mode');
-    } else {
-        // Switch to Dark Mode
-        body.classList.remove('light');
-        body.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-        updateAllThemeToggles(true);
-        console.log('🌙 GLOBAL: Switched to Dark Mode');
-    }
-    
-    // Dispatch global theme change event
-    window.dispatchEvent(new CustomEvent('themeChanged', { 
-        detail: { theme: body.classList.contains('dark') ? 'dark' : 'light' } 
-    }));
-};
-
-const updateAllThemeToggles = (isDark) => {
-    // Update all theme toggle buttons consistently
-    const allToggles = document.querySelectorAll('#theme-toggle, #nav-theme-toggle');
-    
-    allToggles.forEach(toggle => {
-        if (!toggle) return;
-        
-        if (isDark) {
-            // Dark mode - show moon icon
-            toggle.innerHTML = `
-                <svg class="w-5 h-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-            `;
-            toggle.title = 'Switch to Light Mode';
-        } else {
-            // Light mode - show sun icon
-            toggle.innerHTML = `
-                <svg class="w-5 h-5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-            `;
-            toggle.title = 'Switch to Dark Mode';
-        }
-    });
-};
+// === UNIFIED THEME MANAGEMENT SYSTEM (Now using centralized ThemeManager) ===
+const initializeTheme = () => themeManager.initialize();
+const initializeThemeToggle = () => {}; // No longer needed - handled by ThemeManager
 
 // --- Driver Location Toggle Handler ---
 const handleLocationToggle = () => {
