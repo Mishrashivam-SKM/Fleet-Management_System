@@ -677,45 +677,69 @@ const setupDispatcherDashboard = async () => {
         // Wait a bit longer to ensure Firebase collections are initialized
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Initialize map with lazy loading
-        setTimeout(() => {
-            try {
-                console.log("Setting up lazy loading for dispatcher map...");
-                const mapContainer = document.getElementById('map-container');
-                if (!mapContainer) {
-                    console.error("Map container 'map-container' not found in DOM");
-                    return;
-                }
-                
+        // Initialize map with lazy loading - immediate setup
+        try {
+            console.log("Setting up lazy loading for dispatcher map...");
+            const mapContainer = document.getElementById('map-container');
+            if (!mapContainer) {
+                console.error("Map container 'map-container' not found in DOM");
+            } else {
                 // Set up lazy loading for the map
                 mapContainer.dataset.lazyComponent = 'map';
                 registerForLazyLoading(mapContainer);
                 console.log("Map lazy loading registered successfully");
-            } catch (mapError) {
-                console.error("Error setting up map lazy loading:", mapError);
-                // Fallback to direct initialization
-                try {
-                    initializeMap('map-container');
-                } catch (fallbackError) {
-                    console.error("Fallback map initialization also failed:", fallbackError);
-                }
+                
+                // Set up observer to detect when map is initialized
+                const mapObserver = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.target.classList.contains('leaflet-container') && window.pendingMapUpdate) {
+                            console.log("Map initialized, applying pending updates");
+                            updateAllMarkers(window.pendingMapUpdate.vehicles, window.pendingMapUpdate.tasks);
+                            window.pendingMapUpdate = null;
+                            mapObserver.disconnect();
+                        }
+                    });
+                });
+                
+                mapObserver.observe(mapContainer, { attributes: true, attributeFilter: ['class'] });
             }
-        }, 100);
+        } catch (mapError) {
+            console.error("Error setting up map lazy loading:", mapError);
+            // Fallback to direct initialization
+            try {
+                const mapInstance = initializeMap('map-container');
+                if (mapInstance && window.pendingMapUpdate) {
+                    updateAllMarkers(window.pendingMapUpdate.vehicles, window.pendingMapUpdate.tasks);
+                    window.pendingMapUpdate = null;
+                }
+            } catch (fallbackError) {
+                console.error("Fallback map initialization also failed:", fallbackError);
+            }
+        }
         
         // Set up real-time listeners with timeout fallbacks
         console.log("Setting up Firebase listeners for tasks and vehicles...");
         
-        // Set up tasks listener with timeout
+        // Set up tasks listener with smart update detection
         let tasksLoaded = false;
         let currentTasks = [];
+        let previousTasksHash = '';
         const taskUnsubscribe = listenForPendingTasks((tasks) => {
             tasksLoaded = true;
-            currentTasks = tasks;
-            window.currentTasks = tasks; // Store globally for optimization refresh
-            console.log("Tasks loaded:", tasks.length, "tasks");
-            renderPendingTasks(tasks);
-            // Update map with both vehicles and tasks
-            updateMapWithAllData();
+            const newTasksHash = JSON.stringify(tasks.map(t => ({ id: t.id, status: t.status, location: t.location })));
+            
+            // Only update if tasks actually changed
+            if (newTasksHash !== previousTasksHash) {
+                currentTasks = tasks;
+                window.currentTasks = tasks; // Store globally for optimization refresh
+                console.log("Tasks updated:", tasks.length, "tasks");
+                renderPendingTasks(tasks);
+                // Update map with both vehicles and tasks
+                updateMapWithAllData();
+                previousTasksHash = newTasksHash;
+            } else {
+                console.log("Tasks data unchanged, skipping map update");
+            }
         });
         
         // Fallback for tasks if not loaded within 3 seconds
@@ -745,29 +769,43 @@ const setupDispatcherDashboard = async () => {
             }
         }, 3000);
         
-        // Set up vehicles listener with timeout
+        // Set up vehicles listener with smart update detection
         let vehiclesLoaded = false;
         let currentVehicles = [];
+        let previousVehiclesHash = '';
         const vehicleUnsubscribe = fetchLiveVehicles((vehicles) => {
             vehiclesLoaded = true;
-            currentVehicles = vehicles;
-            console.log("Vehicles loaded:", vehicles.length, "vehicles");
-            renderVehicleList(vehicles);
-            // Update map with both vehicles and tasks
-            updateMapWithAllData();
+            const newVehiclesHash = JSON.stringify(vehicles.map(v => ({ id: v.id, liveStatus: v.liveStatus, liveLocation: v.liveLocation })));
+            
+            // Only update if vehicles actually changed
+            if (newVehiclesHash !== previousVehiclesHash) {
+                currentVehicles = vehicles;
+                console.log("Vehicles updated:", vehicles.length, "vehicles");
+                renderVehicleList(vehicles);
+                // Update map with both vehicles and tasks
+                updateMapWithAllData();
+                previousVehiclesHash = newVehiclesHash;
+            } else {
+                console.log("Vehicles data unchanged, skipping map update");
+            }
         });
 
-        // Function to update map with all current data
+        // Debounced function to update map with all current data - only when data changes
+        let mapUpdateTimeout = null;
         function updateMapWithAllData() {
-            // Wait for map container to be fully ready
-            const mapContainer = document.getElementById('map-container');
-            if (!mapContainer) {
-                console.log("Map container not found, skipping marker update");
-                return;
+            // Clear any existing timeout to debounce updates
+            if (mapUpdateTimeout) {
+                clearTimeout(mapUpdateTimeout);
             }
             
-            // Check if map is initialized by looking for leaflet-container class
-            const checkMapReady = () => {
+            mapUpdateTimeout = setTimeout(() => {
+                const mapContainer = document.getElementById('map-container');
+                if (!mapContainer) {
+                    console.log("Map container not found, skipping marker update");
+                    return;
+                }
+                
+                // Only update if map is initialized
                 if (mapContainer.classList.contains('leaflet-container')) {
                     try {
                         console.log(`🗺️ Updating map with ${currentVehicles.length} vehicles and ${currentTasks.length} tasks`);
@@ -776,14 +814,12 @@ const setupDispatcherDashboard = async () => {
                         console.warn("Error updating markers:", error);
                     }
                 } else {
-                    // Map not ready, try again in 500ms
-                    console.log("Map not initialized yet, retrying in 500ms...");
-                    setTimeout(checkMapReady, 500);
+                    console.log("Map not initialized yet, markers will be updated when map loads");
+                    // Store the update request for when map is ready
+                    window.pendingMapUpdate = { vehicles: currentVehicles, tasks: currentTasks };
                 }
-            };
-            
-            // Start checking after a short delay to allow map container to initialize
-            setTimeout(checkMapReady, 500);
+                mapUpdateTimeout = null;
+            }, 300); // 300ms debounce delay
         }
         
         // Fallback for vehicles if not loaded within 3 seconds  

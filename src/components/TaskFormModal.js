@@ -8,6 +8,30 @@ import { geocodeWithGemini } from '../services/geminiGeocodingService.js';
 let onSubmitCallback = null;
 let useGeminiGeocoding = true; // Toggle to enable/disable Gemini AI geocoding
 
+// --- Helper Functions ---
+
+/**
+ * Gets default start time (tomorrow 8:00 AM) for new tasks
+ */
+const getDefaultStartTime = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(8, 0, 0, 0); // 8:00 AM
+    tomorrow.setMinutes(tomorrow.getMinutes() - tomorrow.getTimezoneOffset());
+    return tomorrow.toISOString().slice(0, 16);
+};
+
+/**
+ * Gets default end time (tomorrow 6:00 PM) for new tasks
+ */
+const getDefaultEndTime = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(18, 0, 0, 0); // 6:00 PM
+    tomorrow.setMinutes(tomorrow.getMinutes() - tomorrow.getTimezoneOffset());
+    return tomorrow.toISOString().slice(0, 16);
+};
+
 /**
  * Opens and injects the task modal into the DOM.
  * @param {function} onSubmit - The callback function to execute when the form is submitted.
@@ -51,12 +75,12 @@ export const openTaskModal = (onSubmit, taskToEdit = null) => {
                          <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label for="timeWindowStart" class="block text-sm font-medium theme-text-primary">Time Window Start</label>
-                                <input type="datetime-local" id="timeWindowStart" name="timeWindowStart" required class="mt-1 block w-full theme-input rounded-md shadow-sm py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200" value="${toDateTimeLocal(taskToEdit?.timeWindowStart)}">
+                                <input type="datetime-local" id="timeWindowStart" name="timeWindowStart" required class="mt-1 block w-full theme-input rounded-md shadow-sm py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200" value="${taskToEdit?.timeWindowStart ? toDateTimeLocal(taskToEdit.timeWindowStart) : getDefaultStartTime()}">
                                 <p class="mt-1 text-sm theme-text-muted">Earliest acceptable delivery time</p>
                             </div>
                             <div>
                                 <label for="timeWindowEnd" class="block text-sm font-medium theme-text-primary">Time Window End (Deadline)</label>
-                                <input type="datetime-local" id="timeWindowEnd" name="timeWindowEnd" required class="mt-1 block w-full theme-input rounded-md shadow-sm py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200" value="${toDateTimeLocal(taskToEdit?.timeWindowEnd)}">
+                                <input type="datetime-local" id="timeWindowEnd" name="timeWindowEnd" required class="mt-1 block w-full theme-input rounded-md shadow-sm py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200" value="${taskToEdit?.timeWindowEnd ? toDateTimeLocal(taskToEdit.timeWindowEnd) : getDefaultEndTime()}">
                                 <p class="mt-1 text-sm theme-text-muted">⚠️ Latest acceptable delivery time (deadline)</p>
                             </div>
                         </div>

@@ -457,25 +457,42 @@ export const createDeliveryHistoryEntry = async (taskId, tripLogId, completedAt)
             isOnTime: (() => {
                 if (!taskData.timeWindowEnd) {
                     // No delivery deadline specified - consider on time
+                    console.log(`✅ ON TIME - No deadline specified for task ${taskData.customerId}`);
                     return true;
                 }
                 
                 const completionTime = completedAt.toDate();
                 let deadlineTime;
                 
-                // Handle different timestamp formats
-                if (taskData.timeWindowEnd.toDate) {
-                    // Firestore Timestamp
-                    deadlineTime = taskData.timeWindowEnd.toDate();
-                } else if (typeof taskData.timeWindowEnd === 'string') {
-                    // ISO string
-                    deadlineTime = new Date(taskData.timeWindowEnd);
-                } else {
-                    // Direct Date object
-                    deadlineTime = new Date(taskData.timeWindowEnd);
+                // Handle different timestamp formats with validation
+                try {
+                    if (taskData.timeWindowEnd.toDate) {
+                        // Firestore Timestamp
+                        deadlineTime = taskData.timeWindowEnd.toDate();
+                    } else if (taskData.timeWindowEnd.seconds) {
+                        // Manual timestamp object
+                        deadlineTime = new Date(taskData.timeWindowEnd.seconds * 1000);
+                    } else if (typeof taskData.timeWindowEnd === 'string') {
+                        // ISO string
+                        deadlineTime = new Date(taskData.timeWindowEnd);
+                    } else {
+                        // Direct Date object or number
+                        deadlineTime = new Date(taskData.timeWindowEnd);
+                    }
+                    
+                    // Validate the deadline time
+                    if (isNaN(deadlineTime.getTime())) {
+                        console.warn(`⚠️ Invalid deadline time for task ${taskData.customerId}, considering on time`);
+                        return true;
+                    }
+                } catch (error) {
+                    console.error(`❌ Error parsing deadline for task ${taskData.customerId}:`, error, taskData.timeWindowEnd);
+                    return true; // Consider on time if we can't parse the deadline
                 }
                 
-                console.log(`📅 Delivery Time Check - Completed: ${completionTime.toLocaleString()}, Deadline: ${deadlineTime.toLocaleString()}`);
+                console.log(`📅 Delivery Time Check - Customer: ${taskData.customerId}`);
+                console.log(`📅 Completed: ${completionTime.toLocaleString()}`);
+                console.log(`📅 Deadline: ${deadlineTime.toLocaleString()}`);
                 
                 // On time if completed before or at deadline
                 const onTime = completionTime <= deadlineTime;

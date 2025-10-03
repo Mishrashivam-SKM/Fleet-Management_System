@@ -43,6 +43,10 @@ export const initializeMap = (containerId) => {
     }
 };
 
+// Store last update data to prevent unnecessary re-rendering
+let lastVehicleData = null;
+let lastTaskData = null;
+
 /**
  * Updates vehicle markers on the map. Clears old markers and adds new ones.
  * @param {import('../data/models.js').Vehicle[]} vehicles - An array of vehicle objects.
@@ -53,6 +57,20 @@ export const updateVehicleMarkers = (vehicles) => {
         return;
     }
 
+    // Check if vehicle data actually changed to prevent unnecessary updates
+    const vehicleHash = JSON.stringify(vehicles.map(v => ({
+        id: v.id,
+        lat: v.liveLocation?.latitude,
+        lng: v.liveLocation?.longitude,
+        status: v.liveStatus
+    })));
+    
+    if (lastVehicleData === vehicleHash) {
+        console.log("🚫 Vehicle data unchanged, skipping marker update");
+        return;
+    }
+    
+    lastVehicleData = vehicleHash;
     vehicleMarkersLayer.clearLayers(); // Remove all previous markers
 
     const bounds = L.latLngBounds();
@@ -102,6 +120,20 @@ export const updateTaskMarkers = (tasks) => {
         return;
     }
 
+    // Check if task data actually changed to prevent unnecessary updates
+    const taskHash = JSON.stringify(tasks.map(t => ({
+        id: t.id,
+        lat: t.location?.latitude || t.deliveryLocation?.latitude,
+        lng: t.location?.longitude || t.deliveryLocation?.longitude,
+        status: t.status
+    })));
+    
+    if (lastTaskData === taskHash) {
+        console.log("🚫 Task data unchanged, skipping marker update");
+        return;
+    }
+    
+    lastTaskData = taskHash;
     console.log(`🗺️ Updating task markers for ${tasks.length} tasks`);
     taskMarkersLayer.clearLayers(); // Remove all previous task markers
 
@@ -170,9 +202,7 @@ export const updateTaskMarkers = (tasks) => {
 
     // Auto-fit map to show all task markers if any exist
     if (hasMarkers && bounds.isValid()) {
-        setTimeout(() => {
-            mapInstance.fitBounds(bounds, { padding: [30, 30] });
-        }, 100);
+        mapInstance.fitBounds(bounds, { padding: [30, 30] });
         console.log(`🎯 Map view adjusted to show ${tasks.length} task locations`);
     } else {
         console.log("ℹ️ No valid task locations to display");
@@ -219,9 +249,7 @@ export const updateAllMarkers = (vehicles, tasks) => {
 
     // Fit map to show all locations
     if (hasAnyMarkers && allBounds.isValid()) {
-        setTimeout(() => {
-            mapInstance.fitBounds(allBounds, { padding: [40, 40] });
-        }, 200);
+        mapInstance.fitBounds(allBounds, { padding: [40, 40] });
         console.log("🎯 Map view adjusted to show all vehicles and tasks");
     }
 };
