@@ -19,6 +19,15 @@ import { geocodeAddress as nominatimGeocode } from './geocodingService.js';
 export const geocodeWithGemini = async (address) => {
     console.log('🤖 Gemini AI Direct Geocoding:', address);
     
+    // Validate inputs
+    if (!address || typeof address !== 'string' || address.trim().length === 0) {
+        throw new Error('Invalid address: address must be a non-empty string');
+    }
+    
+    if (!GEMINI_API_KEY || GEMINI_API_KEY.trim().length === 0) {
+        throw new Error('Gemini API key is not configured');
+    }
+    
     const GEOCODING_PROMPT = `You are a precise geocoding assistant for Indian addresses. Convert the following address to exact latitude and longitude coordinates.
 
 Address to geocode: "{ADDRESS_PLACEHOLDER}"
@@ -53,40 +62,79 @@ Output: {"latitude": 18.9220, "longitude": 72.8347, "originalAddress": "Gateway 
 Input: "Hiranandani Meadows, Thane"
 Output: {"latitude": 19.2057, "longitude": 72.9750, "originalAddress": "Hiranandani Meadows, Thane", "geocodedAddress": null, "confidence": "high", "city": "Thane", "state": "Maharashtra", "postalCode": "400607", "locality": "Manpada", "landmark": null}`;
 
+    // Construct the actual prompt by replacing the placeholder
+    const prompt = GEOCODING_PROMPT.replace('{ADDRESS_PLACEHOLDER}', address);
+    
+    // Create request payload
+    const requestPayload = {
+        contents: [{
+            parts: [{
+                text: prompt
+            }]
+        }],
+        generationConfig: {
+            temperature: 0.1, // Low temperature for consistent, accurate results
+            maxOutputTokens: 512,
+        }
+    };
+    
+    console.log('🤖 Sending request to Gemini API...');
+    console.log('📤 Request payload structure:', JSON.stringify(requestPayload, null, 2));
+    
     try {
         const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.1, // Low temperature for consistent, accurate results
-                    maxOutputTokens: 512,
-                }
-            })
+            body: JSON.stringify(requestPayload)
         });
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Gemini API error ${response.status}: ${errorText}`);
+            console.error('❌ Gemini API HTTP error:', response.status, response.statusText);
+            console.error('❌ Error response body:', errorText);
+            throw new Error(`Gemini API HTTP error ${response.status}: ${errorText}`);
         }
 
         const data = await response.json();
-        const text = data.candidates[0].content.parts[0].text;
         
-        console.log('📥 Gemini raw response:', text);
+        console.log('📥 Gemini API response structure:', JSON.stringify(data, null, 2));
+        
+        // Validate response structure
+        if (!data.candidates || !Array.isArray(data.candidates) || data.candidates.length === 0) {
+            console.error('❌ Invalid Gemini API response: missing or empty candidates array');
+            console.error('Full response:', data);
+            throw new Error('Invalid API response: no candidates found');
+        }
+        
+        const candidate = data.candidates[0];
+        if (!candidate.content || !candidate.content.parts || !Array.isArray(candidate.content.parts) || candidate.content.parts.length === 0) {
+            console.error('❌ Invalid candidate structure:', candidate);
+            throw new Error('Invalid API response: malformed candidate structure');
+        }
+        
+        const text = candidate.content.parts[0].text;
+        if (!text || typeof text !== 'string') {
+            console.error('❌ No text content in response part:', candidate.content.parts[0]);
+            throw new Error('Invalid API response: no text content');
+        }
+        
+        console.log('📥 Gemini raw response text:', text);
         
         // Extract JSON from markdown code blocks if present
         const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
         const jsonText = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : text;
         
-        const result = JSON.parse(jsonText.trim());
+        let result;
+        try {
+            result = JSON.parse(jsonText.trim());
+        } catch (parseError) {
+            console.error('❌ Failed to parse JSON from Gemini response:', parseError);
+            console.error('Raw text:', text);
+            console.error('Extracted JSON text:', jsonText);
+            throw new Error(`JSON parsing failed: ${parseError.message}`);
+        }
         
         // Validate the result
         if (!result.latitude || !result.longitude) {
@@ -121,7 +169,9 @@ Output: {"latitude": 19.2057, "longitude": 72.9750, "originalAddress": "Hiranand
         };
         
     } catch (error) {
-        console.error('❌ Gemini geocoding failed:', error);
+        console.error('❌ Gemini geocoding failed with error type:', error.constructor.name);
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Full error:', error);
         console.warn('🔄 Falling back to Nominatim geocoding...');
         
         // Fallback to Nominatim
