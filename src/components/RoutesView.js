@@ -99,7 +99,7 @@ export const renderOptimizedRoutes = (routes) => {
                             📦 Deliver to: ${step.description || step.customerName || step.customerId || `Customer ${index + 1}`}
                         </div>
                         <div class="text-sm text-gray-600">
-                            📊 Volume: ${step.load ? step.load[0] : 'N/A'} units
+                            📊 Volume: ${step.load && step.load[0] ? step.load[0] : (step.demandVolume || step.amount || 'N/A')} units
                         </div>
                     </div>
                 </li>

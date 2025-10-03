@@ -65,7 +65,7 @@ Output: {"latitude": 19.2057, "longitude": 72.9750, "originalAddress": "Hiranand
     // Construct the actual prompt by replacing the placeholder
     const prompt = GEOCODING_PROMPT.replace('{ADDRESS_PLACEHOLDER}', address);
     
-    // Create request payload
+    // Create request payload/
     const requestPayload = {
         contents: [{
             parts: [{

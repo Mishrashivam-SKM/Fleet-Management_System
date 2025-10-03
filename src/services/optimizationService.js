@@ -423,6 +423,7 @@ async function createGeminiOptimizedRoutes(jobs, vehicles) {
                     arrival: currentTime + nearestTravelTime,
                     duration: nearestJob.service || 300,
                     distance: Math.round(nearestDistance * 1000),
+                    load: nearestJob.amount || [1], // Include volume information
                     // Preserve customer information
                     customerId: nearestJob.customerId,
                     customerName: nearestJob.customerName,
