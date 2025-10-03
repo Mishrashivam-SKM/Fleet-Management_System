@@ -96,7 +96,7 @@ export const renderOptimizedRoutes = (routes) => {
                     </div>
                     <div class="flex-grow">
                         <div class="font-semibold text-gray-900">
-                            📦 Deliver to: ${step.description || step.id}
+                            📦 Deliver to: ${step.description || step.customerName || step.customerId || `Customer ${index + 1}`}
                         </div>
                         <div class="text-sm text-gray-600">
                             📊 Volume: ${step.load ? step.load[0] : 'N/A'} units

@@ -171,7 +171,7 @@ export const updateTaskMarkers = (tasks) => {
             
             marker.bindPopup(`
                 <div class="p-2 min-w-[200px]">
-                    <h3 class="font-bold text-lg mb-2">📦 Task ${index + 1}: ${task.customerId}</h3>
+                    <h3 class="font-bold text-lg mb-2">📦 Task ${index + 1}: ${task.customerName || task.customerId || 'Customer'}</h3>
                     <p class="text-sm mb-1"><strong>Address:</strong> ${task.deliveryAddress || 'Not specified'}</p>
                     <p class="text-sm mb-1"><strong>Volume:</strong> ${task.demandVolume || 0} units</p>
                     <p class="text-sm mb-1"><strong>Status:</strong> <span class="capitalize font-semibold">${task.status || 'pending'}</span></p>

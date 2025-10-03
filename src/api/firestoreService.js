@@ -194,11 +194,13 @@ export const saveOptimizedRoutesAsTripLogs = async (routes, vehicles = []) => {
 
             // Pull original task data if present on the step (enriched by optimizer) or fallback strings
             const originalAddress = step.originalAddress || step.address || step.deliveryAddress || null;
-            const customerName = step.description || step.customerId || `Customer-${step.id}`;
+            // Prioritize actual customer data over step.description which may contain task ID
+            const customerName = step.customerName || step.customerId || step.description || `Customer ${step.id || 'Unknown'}`;
 
             return ({
                 id: step.id.toString(),
-                customerId: customerName,
+                customerId: step.customerId || step.customerName || customerName,
+                customerName: step.customerName || step.customerId || customerName,
                 deliveryAddress: originalAddress || (lat != null && lng != null ? `Lat: ${lat}, Lng: ${lng}` : 'Unknown location'),
                 originalAddress: originalAddress || null,
                 coordinates: (lat != null && lng != null) ? { lat, lng } : null,
@@ -247,7 +249,7 @@ export const listenForRouteChanges = (callback) => {
                     ...data.tasks.map(task => ({
                         type: 'job',
                         id: task.id,
-                        description: task.customerId,
+                        description: task.customerName || task.customerId,
                         location: task.coordinates ? [task.coordinates.lng, task.coordinates.lat] : null,
                         load: [task.demandVolume || 0]
                     })),
@@ -278,7 +280,7 @@ export const fetchExistingRoutes = async (includeCompleted = false) => {
                     ...data.tasks.map(task => ({
                         type: 'job',
                         id: task.id,
-                        description: task.customerId,
+                        description: task.customerName || task.customerId,
                         location: task.coordinates ? [task.coordinates.lng, task.coordinates.lat] : null,
                         load: [task.demandVolume || 0]
                     })),

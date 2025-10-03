@@ -142,7 +142,11 @@ const createVroomPayload = (orderedTasks, vehicles) => {
             location: [taskLocation.longitude, taskLocation.latitude],
             service: 300, // Service time in seconds (e.g., 5 minutes)
             amount: [task.demandVolume || 1],
-            time_windows: [[startTime, endTime]]
+            time_windows: [[startTime, endTime]],
+            // Preserve customer information for route display
+            customerId: task.customerId,
+            customerName: task.customerName || task.customerId,
+            originalAddress: task.originalAddress || task.deliveryAddress
         };
     });
 
@@ -418,7 +422,12 @@ async function createGeminiOptimizedRoutes(jobs, vehicles) {
                     id: nearestJob.id,
                     arrival: currentTime + nearestTravelTime,
                     duration: nearestJob.service || 300,
-                    distance: Math.round(nearestDistance * 1000)
+                    distance: Math.round(nearestDistance * 1000),
+                    // Preserve customer information
+                    customerId: nearestJob.customerId,
+                    customerName: nearestJob.customerName,
+                    description: nearestJob.customerName || nearestJob.customerId,
+                    originalAddress: nearestJob.originalAddress
                 });
                 
                 // Update route metrics
@@ -739,7 +748,7 @@ export const optimizeRouteHandler = async (tasks, vehicles) => {
                     // Find the corresponding job in the payload for better debugging
                     const job = payload.jobs?.find(j => j.id === unassigned.id);
                     console.warn(`  📊 Task details:`, {
-                        customer: originalTask.customerId,
+                        customer: originalTask.customerName || originalTask.customerId,
                         volume: originalTask.demandVolume,
                         location: originalTask.location || originalTask.deliveryLocation || originalTask.coordinates,
                         coordinates: job ? `[${job.location[0]}, ${job.location[1]}]` : 'Unknown',
@@ -951,7 +960,12 @@ export const optimizeRouteHandler = async (tasks, vehicles) => {
                         arrival: Math.floor(Date.now() / 1000) + (route.steps.length * 600), // 10 min intervals
                         duration: 300,
                         location: normalizedLocation, // always [lon, lat]
-                        load: [task.demandVolume || 1]
+                        load: [task.demandVolume || 1],
+                        // Preserve customer information
+                        customerId: task.customerId,
+                        customerName: task.customerName || task.customerId,
+                        description: task.customerName || task.customerId,
+                        originalAddress: task.originalAddress || task.deliveryAddress
                     });
                 }
                 

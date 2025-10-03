@@ -1816,6 +1816,11 @@ const handleMarkComplete = async (e) => {
 const handleTaskFormSubmit = async (taskData, taskId) => {
     try {
         await createOrUpdateTask(taskId, taskData);
+        
+        // Show success notification - real-time listener will handle UI update
+        const action = taskId ? 'updated' : 'created';
+        showNotification(`Task ${action} successfully! 📋✅`, 'success');
+        
     } catch (error) {
         console.error("Error saving task:", error);
         alert("Error saving task. See console for details.");
