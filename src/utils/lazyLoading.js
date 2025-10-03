@@ -80,6 +80,9 @@ const loadLazyComponent = async (element) => {
             case 'map':
                 await loadMapComponent(element);
                 break;
+            case 'driver-map':
+                await loadDriverMapComponent(element);
+                break;
             case 'reports':
                 await loadReportsComponent(element);
                 break;
@@ -156,6 +159,19 @@ const loadMapComponent = async (element) => {
     const { initializeMap } = await import('../components/mapView.js');
     if (element.id) {
         initializeMap(element.id);
+    }
+};
+
+const loadDriverMapComponent = async (element) => {
+    // Initialize driver map if container exists
+    const { initializeDriverMap } = await import('../components/mapView.js');
+    if (element.id) {
+        try {
+            console.log(`🗺️ Initializing driver map for element: ${element.id}`);
+            initializeDriverMap();
+        } catch (error) {
+            console.error('Error initializing driver map:', error);
+        }
     }
 };
 

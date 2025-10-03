@@ -31,7 +31,9 @@ import {
     getCurrentUser,
     fetchExistingRoutes,
     listenForRouteChanges,
-    cleanupCompletedRoutes 
+    cleanupCompletedRoutes,
+    fetchDriverKPIs,
+    listenForDriverDeliveryHistory 
 } from './api/firestoreService.js';
 import { initializeFirestore } from './api/setupFirestore.js';
 import { initializeMap, updateVehicleMarkers, updateTaskMarkers, updateAllMarkers, initializeDriverMap, showDriverRoute } from './components/mapView.js';
@@ -56,13 +58,21 @@ let currentView = null; // 'landing', 'login', 'dashboard', or 'driver'
 let authReadyPromise = null;
 let isAppInitialized = false;
 
-// Global navigation function (available everywhere) - Fixed the main issue!
-window.openExternalNavigation = (destination, originalAddress = null) => {
-    console.log("🗺️ Opening external navigation for:", destination);
+// Global navigation function (available everywhere) - Updated to accept numeric coordinates
+window.openExternalNavigation = (lat, lng, originalAddress = null) => {
+    console.log("🗺️ Opening external navigation for coordinates:", lat, lng);
     console.log("📍 Original address:", originalAddress);
+    console.log("🔍 Coordinate types:", typeof lat, typeof lng);
     
-    if (!destination || destination === 'undefined,undefined' || destination === 'null,null') {
-        alert('⚠️ Location not available for this task');
+    // Convert to numbers if they're strings
+    const numLat = typeof lat === 'string' ? parseFloat(lat) : lat;
+    const numLng = typeof lng === 'string' ? parseFloat(lng) : lng;
+    
+    // Validate coordinates
+    if (!numLat || !numLng || isNaN(numLat) || isNaN(numLng) || 
+        numLat < -90 || numLat > 90 || numLng < -180 || numLng > 180) {
+        console.warn("⚠️ Invalid coordinates for navigation:", numLat, numLng);
+        alert('⚠️ Invalid coordinates for navigation');
         return;
     }
     
@@ -72,7 +82,7 @@ window.openExternalNavigation = (destination, originalAddress = null) => {
     let mapsUrl;
     
     // Prefer original address for better navigation experience
-    if (originalAddress && originalAddress.trim()) {
+    if (originalAddress && originalAddress.trim() && originalAddress !== 'Address not available') {
         const encodedAddress = encodeURIComponent(originalAddress.trim());
         if (isMobile) {
             mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
@@ -80,23 +90,14 @@ window.openExternalNavigation = (destination, originalAddress = null) => {
             mapsUrl = `https://www.google.com/maps/search/${encodedAddress}`;
         }
         console.log("🏠 Using original address for navigation:", originalAddress);
-    } else if (destination.includes(',') && /^[-\d.]+,\s*[-\d.]+$/.test(destination.trim())) {
-        // Fallback to coordinates format (lat,lng)
-        const [lat, lng] = destination.split(',').map(s => s.trim());
-        if (isMobile) {
-            mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-        } else {
-            mapsUrl = `https://www.google.com/maps/search/${lat},${lng}`;
-        }
-        console.log("📍 Using coordinates for navigation:", destination);
     } else {
-        // Last resort - treat as address
-        const encodedDestination = encodeURIComponent(destination);
+        // Use numeric coordinates directly
         if (isMobile) {
-            mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedDestination}`;
+            mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${numLat},${numLng}`;
         } else {
-            mapsUrl = `https://www.google.com/maps/search/${encodedDestination}`;
+            mapsUrl = `https://www.google.com/maps/search/${numLat},${numLng}`;
         }
+        console.log("📍 Using numeric coordinates for navigation:", numLat, numLng);
     }
     
     console.log("🗺️ Opening URL:", mapsUrl);
@@ -961,6 +962,72 @@ const setupDriverDashboard = async (driverEmail) => {
     
     let locationTrackingCleanup = null;
     let currentVehicleId = null;
+
+    // Set up real-time delivery history listener for this driver
+    const driverDeliveryHistoryUnsubscribe = listenForDriverDeliveryHistory(driverEmail, (deliveries) => {
+        console.log(`📦 Driver delivery history updated: ${deliveries.length} completed deliveries`);
+        renderDriverDeliveryHistory(deliveries);
+    });
+
+    // Set up real-time KPI updates for this driver  
+    const setupDriverKPIUpdates = async () => {
+        try {
+            const kpis = await fetchDriverKPIs(driverEmail);
+            renderDriverKPIs(kpis);
+            
+            // Set up periodic KPI updates
+            const kpiInterval = setInterval(async () => {
+                try {
+                    const updatedKpis = await fetchDriverKPIs(driverEmail);
+                    renderDriverKPIs(updatedKpis);
+                } catch (error) {
+                    console.error('Error updating driver KPIs:', error);
+                }
+            }, 30000); // Update every 30 seconds
+
+            // Store cleanup function
+            if (!window.driverCleanupFunctions) window.driverCleanupFunctions = [];
+            window.driverCleanupFunctions.push(() => clearInterval(kpiInterval));
+            
+        } catch (error) {
+            console.error('Error setting up driver KPI updates:', error);
+        }
+    };
+
+    // Initialize KPI updates
+    setupDriverKPIUpdates();
+
+    // Initialize driver map with lazy loading and glitch prevention
+    try {
+        console.log("Setting up lazy loading for driver map...");
+        const driverMapContainer = document.getElementById('driver-map-container');
+        if (driverMapContainer) {
+            // Apply same map glitch fixes as dispatcher dashboard
+            driverMapContainer.dataset.lazyComponent = 'driver-map';
+            registerForLazyLoading(driverMapContainer);
+            
+            // Set up observer to detect when driver map is initialized
+            const driverMapObserver = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.target.classList.contains('leaflet-container') && window.pendingDriverMapUpdate) {
+                        console.log("Driver map initialized, applying pending updates");
+                        showDriverRoute(window.pendingDriverMapUpdate.route, window.pendingDriverMapUpdate.currentLocation);
+                        window.pendingDriverMapUpdate = null;
+                        driverMapObserver.disconnect();
+                    }
+                });
+            });
+            
+            driverMapObserver.observe(driverMapContainer, { attributes: true, attributeFilter: ['class'] });
+        }
+    } catch (mapError) {
+        console.error("Error setting up driver map lazy loading:", mapError);
+    }
+
+    // Store unsubscribe functions for cleanup
+    if (driverDeliveryHistoryUnsubscribe) {
+        currentUnsubscribes.push(driverDeliveryHistoryUnsubscribe);
+    }
     
     // Setup a real-time listener for the driver's route
     const routeCallback = (route) => {
@@ -976,7 +1043,7 @@ const setupDriverDashboard = async (driverEmail) => {
         // Wait a bit to ensure DOM is ready
         setTimeout(() => {
             if (route && route.tasks && route.tasks.length > 0) {
-                console.log("Rendering driver tasks:", route.tasks);
+                console.log("🚛 Rendering driver tasks and updating map:", route.tasks);
                 renderDriverTasks(route.tasks, route.id); // Pass tripLogId
                 currentVehicleId = route.vehicleId;
                 
@@ -987,6 +1054,55 @@ const setupDriverDashboard = async (driverEmail) => {
                 if (currentVehicleId) {
                     updateVehicleStatus(currentVehicleId, 'on_route');
                 }
+
+                // Real-time map update for driver route
+                const updateDriverMap = () => {
+                    const driverMapContainer = document.getElementById('driver-map-container');
+                    if (driverMapContainer && driverMapContainer.classList.contains('leaflet-container')) {
+                        try {
+                            // Get current location for map centering
+                            let currentLocation = { lat: 19.2183, lng: 72.9781 }; // Default location
+                            
+                            if (navigator.geolocation) {
+                                navigator.geolocation.getCurrentPosition(
+                                    (position) => {
+                                        currentLocation = {
+                                            lat: position.coords.latitude,
+                                            lng: position.coords.longitude
+                                        };
+                                        console.log("📍 Real-time location updated for driver map");
+                                        showDriverRoute(route, currentLocation);
+                                    },
+                                    (error) => {
+                                        console.warn("Geolocation error, using default location:", error);
+                                        showDriverRoute(route, currentLocation);
+                                    },
+                                    { timeout: 5000, enableHighAccuracy: false }
+                                );
+                            } else {
+                                showDriverRoute(route, currentLocation);
+                            }
+                        } catch (error) {
+                            console.error("Error updating driver map:", error);
+                        }
+                    } else {
+                        // Store the update request for when map is ready
+                        console.log("Driver map not ready, storing update for later");
+                        window.pendingDriverMapUpdate = { 
+                            route: route, 
+                            currentLocation: { lat: 19.2183, lng: 72.9781 } 
+                        };
+                    }
+                };
+
+                // Initial map update
+                updateDriverMap();
+
+                // Set up periodic map updates for real-time tracking
+                if (window.driverMapUpdateInterval) {
+                    clearInterval(window.driverMapUpdateInterval);
+                }
+                window.driverMapUpdateInterval = setInterval(updateDriverMap, 30000); // Update every 30 seconds
             } else if (route) {
                 console.log("Route found but no tasks:", route);
                 const container = document.getElementById('driver-tasks-container');
@@ -1418,8 +1534,8 @@ const renderDriverTasks = (tasks, tripLogId) => {
                     ? ''
                     : `<button class="flex-1 bg-green-600 text-white py-2 px-3 rounded hover:bg-green-700 transition-colors mark-complete-btn" data-task-id="${task.id}" data-trip-log-id="${tripLogId}">📦 Mark as Delivered</button>`
                 }
-                ${displayAddress ? 
-                    `<button onclick="window.openExternalNavigation('${coordinates?.lat || ''},${coordinates?.lng || ''}', '${displayAddress.replace(/'/g, "\\'")}')" 
+                ${displayAddress && coordinates?.lat && coordinates?.lng ? 
+                    `<button onclick="window.openExternalNavigation(${coordinates.lat}, ${coordinates.lng}, '${displayAddress.replace(/'/g, "\\'")}')" 
                             class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm transition-colors">
                         🗺️ Navigate
                     </button>` : ''
@@ -1445,10 +1561,67 @@ const renderDriverTasks = (tasks, tripLogId) => {
         try {
             await updateTaskStatus(tripLogId, taskId, 'completed');
             console.log(`Task ${taskId} marked as delivered from map`);
-            // Refresh the display
-            location.reload();
+            
+            // Update driver KPIs in real-time without page reload
+            const currentDriverEmail = window.currentDriverEmail;
+            if (currentDriverEmail) {
+                console.log('🚛 Updating driver KPIs after map delivery...');
+                try {
+                    const driverKpis = await fetchDriverKPIs(currentDriverEmail);
+                    renderDriverKPIs(driverKpis);
+                    showNotification('Delivery completed from map! 🗺️✅', 'success');
+                } catch (error) {
+                    console.error('Error updating driver KPIs:', error);
+                }
+            }
+            
+            // Refresh map and task display without full page reload
+            setTimeout(async () => {
+                try {
+                    // Fetch updated route data to reflect new task status
+                    const currentUser = getCurrentUser();
+                    if (currentUser && tripLogId) {
+                        console.log('🔄 Fetching updated route after task completion...');
+                        const updatedRoute = await getDriverRoute(currentUser.email);
+                        
+                        if (updatedRoute) {
+                            // Update stored route data
+                            window.lastDriverRoute = updatedRoute;
+                            
+                            // Refresh route callback with updated data
+                            const routeCallback = window.currentDriverRouteCallback;
+                            if (routeCallback) {
+                                routeCallback(updatedRoute);
+                            }
+                            
+                            // Refresh driver map with updated route to show current task status
+                            const currentLocation = { lat: 19.2183, lng: 72.9781 };
+                            if (navigator.geolocation) {
+                                navigator.geolocation.getCurrentPosition(
+                                    (position) => {
+                                        const location = {
+                                            lat: position.coords.latitude,
+                                            lng: position.coords.longitude
+                                        };
+                                        showDriverRoute(updatedRoute, location);
+                                    },
+                                    () => showDriverRoute(updatedRoute, currentLocation)
+                                );
+                            } else {
+                                showDriverRoute(updatedRoute, currentLocation);
+                            }
+                            
+                            console.log('✅ Map refreshed with updated task status');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error refreshing route after task completion:', error);
+                }
+            }, 1000);
+            
         } catch (error) {
             console.error('Error marking task as delivered:', error);
+            showNotification('Failed to mark delivery as completed', 'error');
         }
     };
     
@@ -1483,9 +1656,21 @@ const handleMarkComplete = async (e) => {
         // Manually trigger KPI update to ensure it's refreshed
         console.log('🔄 Triggering KPI update after task completion...');
         try {
+            // Update both global and driver-specific KPIs
             const kpis = await fetchCurrentKPIs();
             if (window.updateKPIDisplay) {
                 window.updateKPIDisplay(kpis);
+            }
+            
+            // Update driver-specific KPIs if we're in driver dashboard
+            const currentDriverEmail = window.currentDriverEmail;
+            if (currentDriverEmail) {
+                console.log('🚛 Updating driver KPIs after task completion...');
+                const driverKpis = await fetchDriverKPIs(currentDriverEmail);
+                renderDriverKPIs(driverKpis);
+                
+                // Show success notification
+                showNotification('Delivery completed successfully! 📦✅', 'success');
             }
         } catch (error) {
             console.error('Error refreshing KPIs:', error);
@@ -1493,11 +1678,50 @@ const handleMarkComplete = async (e) => {
         
         // Refresh the driver task display to reflect completion
         console.log('🔄 Refreshing task display after completion...');
-        setTimeout(() => {
-            // The real-time listener should automatically update, but force refresh if needed
-            const routeCallback = window.currentDriverRouteCallback;
-            if (routeCallback && window.lastDriverRoute) {
-                routeCallback(window.lastDriverRoute);
+        setTimeout(async () => {
+            try {
+                // Fetch updated route data to reflect new task status
+                const currentUser = getCurrentUser();
+                if (currentUser && currentDriverEmail) {
+                    console.log('🔄 Fetching updated route after task completion...');
+                    const updatedRoute = await getDriverRoute(currentUser.email);
+                    
+                    if (updatedRoute) {
+                        // Update stored route data
+                        window.lastDriverRoute = updatedRoute;
+                        
+                        // Refresh route callback with updated data
+                        const routeCallback = window.currentDriverRouteCallback;
+                        if (routeCallback) {
+                            routeCallback(updatedRoute);
+                        }
+                        
+                        // Refresh driver map with updated route to show current task status
+                        console.log('🗺️ Refreshing driver map with updated route after task completion...');
+                        const currentLocation = { lat: 19.2183, lng: 72.9781 }; // Default location
+                        
+                        if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(
+                                (position) => {
+                                    const location = {
+                                        lat: position.coords.latitude,
+                                        lng: position.coords.longitude
+                                    };
+                                    showDriverRoute(updatedRoute, location);
+                                },
+                                (error) => {
+                                    showDriverRoute(updatedRoute, currentLocation);
+                                }
+                            );
+                        } else {
+                            showDriverRoute(updatedRoute, currentLocation);
+                        }
+                        
+                        console.log('✅ Map refreshed with updated task status');
+                    }
+                }
+            } catch (error) {
+                console.error('Error refreshing route after task completion:', error);
             }
         }, 1000);
         
@@ -1773,6 +1997,23 @@ const cleanupPreviousListeners = () => {
         window.activeLocationTracker.stop();
         window.activeLocationTracker = null;
     }
+    
+    // Clean up driver-specific intervals and functions
+    if (window.driverMapUpdateInterval) {
+        clearInterval(window.driverMapUpdateInterval);
+        window.driverMapUpdateInterval = null;
+    }
+    
+    if (window.driverCleanupFunctions) {
+        window.driverCleanupFunctions.forEach(cleanup => {
+            try {
+                cleanup();
+            } catch (error) {
+                console.error('Error running driver cleanup function:', error);
+            }
+        });
+        window.driverCleanupFunctions = [];
+    }
 };
 
 // --- Delivery History Functions ---
@@ -1838,6 +2079,109 @@ const renderDeliveryHistory = (deliveries) => {
 window.updateKPIDisplay = (kpis) => {
     renderReports(kpis);
     console.log('📊 KPI display updated:', kpis);
+};
+
+// --- Driver-Specific Rendering Functions ---
+
+/**
+ * Render driver-specific delivery history
+ * @param {Array} deliveries - Array of completed deliveries for the driver
+ */
+const renderDriverDeliveryHistory = (deliveries) => {
+    const container = document.getElementById('driver-delivery-history-container');
+    if (!container) return;
+
+    if (!deliveries || deliveries.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-6 text-gray-500">
+                <div class="w-12 h-12 bg-dark-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <p class="font-medium mb-1">No deliveries yet</p>
+                <p class="text-sm text-gray-400">Your completed deliveries will appear here</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Show recent deliveries (limit to 10)
+    const recentDeliveries = deliveries.slice(0, 10);
+    
+    container.innerHTML = recentDeliveries.map((delivery, index) => {
+        const deliveredAt = delivery.deliveredAt?.toDate ? 
+            delivery.deliveredAt.toDate() : 
+            new Date(delivery.deliveredAt);
+        
+        const timeStr = deliveredAt.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        
+        const dateStr = deliveredAt.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric' 
+        });
+
+        return `
+            <div class="bg-dark-600/50 rounded-lg p-4 border-l-4 border-green-500 animate-slide-up" style="animation-delay: ${index * 0.1}s;">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <h4 class="font-semibold theme-text-primary">${delivery.customerId || delivery.customerName || 'Customer'}</h4>
+                        <p class="text-sm theme-text-muted">${delivery.deliveryAddress || 'Address not available'}</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs theme-text-muted">${dateStr}</div>
+                        <div class="text-sm font-medium text-green-400">${timeStr}</div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center text-xs theme-text-muted">
+                    <span>${delivery.distanceTraveled ? `${delivery.distanceTraveled.toFixed(1)}km` : 'Distance N/A'}</span>
+                    <div class="flex items-center space-x-2">
+                        ${delivery.onTime !== false ? 
+                            '<span class="text-green-400">⏱️ On Time</span>' : 
+                            '<span class="text-orange-400">⏰ Delayed</span>'
+                        }
+                        <span class="text-yellow-400">${'⭐'.repeat(delivery.rating || 5)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+};
+
+/**
+ * Render driver-specific KPIs
+ * @param {Object} kpis - Driver performance metrics
+ */
+const renderDriverKPIs = (kpis) => {
+    // Update individual KPI elements with animation
+    const updateKPIElement = (id, value, suffix = '') => {
+        const element = document.getElementById(id);
+        if (element) {
+            const currentValue = element.textContent;
+            const newValue = `${value}${suffix}`;
+            
+            if (currentValue !== newValue) {
+                element.style.transform = 'scale(1.1)';
+                element.style.transition = 'transform 0.2s ease';
+                element.textContent = newValue;
+                
+                setTimeout(() => {
+                    element.style.transform = 'scale(1)';
+                }, 200);
+            }
+        }
+    };
+
+    // Update each KPI with validation
+    updateKPIElement('kpi-deliveries-today', kpis.deliveriesToday || 0);
+    updateKPIElement('kpi-total-distance', kpis.totalDistance || '0.0', ' km');
+    updateKPIElement('kpi-avg-rating', kpis.averageRating || '5.0', '/5');
+    updateKPIElement('kpi-ontime-rate', kpis.onTimeRate || 100, '%');
+
+    console.log('📊 Driver KPIs updated:', kpis);
 };
 
 // === UNIFIED THEME MANAGEMENT SYSTEM (Now using centralized ThemeManager) ===

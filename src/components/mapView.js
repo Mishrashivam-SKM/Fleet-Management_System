@@ -7,7 +7,8 @@ let vehicleMarkersLayer = null;
 let taskMarkersLayer = null;
 
 /**
- * Initializes the Leaflet map in a given container.
+ * Init                                        <button onclick="window.openExternalNavigation(${latitude}, ${longitude}, '${(task.originalAddress || task.deliveryAddress)?.replace(/'/g, "\\'")||''}')"
+                           class="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors">lizes the Leaflet map in a given container.
  * @param {string} containerId - The ID of the HTML element to host the map.
  */
 export const initializeMap = (containerId) => {
@@ -175,7 +176,7 @@ export const updateTaskMarkers = (tasks) => {
                     <p class="text-sm mb-1"><strong>Volume:</strong> ${task.demandVolume || 0} units</p>
                     <p class="text-sm mb-1"><strong>Status:</strong> <span class="capitalize font-semibold">${task.status || 'pending'}</span></p>
                     <p class="text-xs text-gray-600 mt-2">📍 ${task.originalAddress || task.deliveryAddress}</p>
-                                        <button onclick="window.openExternalNavigation('${latitude},${longitude}', '${(task.originalAddress || task.deliveryAddress)?.replace(/'/g, "\\'") || ''}')" 
+                                        <button onclick="window.openExternalNavigation(${latitude}, ${longitude}, '${(task.originalAddress || task.deliveryAddress)?.replace(/'/g, "\\'") || ''}')" 
                            class="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors">
                         🗺️ Navigate
                     </button>
@@ -319,6 +320,10 @@ export const showDriverRoute = (route, currentLocation) => {
     }
 
     // Add task markers with sequence numbers and coordinate validation
+    // Only show pending/in-progress tasks - completed tasks should not appear on map
+    const pendingTasks = route.tasks.filter(task => task.status !== 'completed');
+    let pendingIndex = 0;
+    
     route.tasks.forEach((task, index) => {
         // Enhanced coordinate validation to prevent NaN errors
         if (task.coordinates && 
@@ -329,39 +334,44 @@ export const showDriverRoute = (route, currentLocation) => {
             task.coordinates.lat >= -90 && task.coordinates.lat <= 90 &&
             task.coordinates.lng >= -180 && task.coordinates.lng <= 180) {
             
-            console.log(`📍 Adding task marker ${index + 1} at [${task.coordinates.lat}, ${task.coordinates.lng}]`);
-            
             const isCompleted = task.status === 'completed';
+            
+            // Skip completed tasks - they should not show on the map
+            if (isCompleted) {
+                console.log(`✅ Skipping completed task ${index + 1} (${task.customerId}) - removed from map`);
+                return;
+            }
+            
+            pendingIndex++;
+            console.log(`📍 Adding pending task marker ${pendingIndex} at [${task.coordinates.lat}, ${task.coordinates.lng}]`);
+            
             const marker = L.marker([task.coordinates.lat, task.coordinates.lng])
                 .addTo(driverMarkersLayer);
 
-            // Custom numbered marker with status color
-            const markerColor = isCompleted ? 'bg-green-500' : 'bg-blue-500';
+            // Custom numbered marker for pending tasks only
             marker.setIcon(L.divIcon({
-                html: `<div class="${markerColor} text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm border-2 border-white">${index + 1}</div>`,
+                html: `<div class="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm border-2 border-white">${pendingIndex}</div>`,
                 className: 'task-marker',
                 iconSize: [32, 32],
                 iconAnchor: [16, 16]
             }));
 
-            // Prepare display values
+            // Prepare display values with null safety for pending tasks
             const displayName = task.customerName || task.customerId || 'Customer';
-            const displayAddress = task.originalAddress || task.address;
+            const displayAddress = task.originalAddress || task.address || task.deliveryAddress || 'Address not available';
+            const safeDisplayAddress = displayAddress ? displayAddress.replace(/'/g, "\\'") : 'Address not available';
             
             marker.bindPopup(`
                 <div class="p-3 min-w-[200px]">
-                    <h3 class="font-bold text-lg mb-2">${index + 1}. ${displayName}</h3>
+                    <h3 class="font-bold text-lg mb-2">${pendingIndex}. ${displayName}</h3>
                     <p class="text-sm mb-2">${displayAddress}</p>
-                    <p class="text-xs text-gray-600 mb-2">Status: <span class="font-semibold ${isCompleted ? 'text-green-600' : 'text-blue-600'}">${task.status || 'pending'}</span></p>
+                    <p class="text-xs text-gray-600 mb-2">Status: <span class="font-semibold text-blue-600">Pending Delivery</span></p>
                     <div class="flex gap-2 mt-2">
-                        ${task.status !== 'completed' ? 
-                            `<button onclick="window.markTaskDelivered('${task.id}')" 
-                                    class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs transition-colors">
-                                ✓ Mark Delivered
-                            </button>` : 
-                            `<div class="bg-green-100 text-green-800 px-3 py-1 rounded text-xs">✓ Completed</div>`
-                        }
-                        <button onclick="window.openExternalNavigation('${task.coordinates.lat},${task.coordinates.lng}', '${displayAddress.replace(/'/g, "\\'")}')" 
+                        <button onclick="window.markTaskDelivered('${task.id}')" 
+                                class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs transition-colors">
+                            ✓ Mark Delivered
+                        </button>
+                        <button onclick="window.openExternalNavigation(${task.coordinates.lat}, ${task.coordinates.lng}, '${safeDisplayAddress}')" 
                                class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors">
                             🗺️ Navigate
                         </button>
@@ -440,9 +450,10 @@ const updateNavigationInstructions = (route, currentLocation) => {
             distanceText = `<span class="text-blue-300">📏 ${distance.toFixed(2)} km away</span>`;
         }
         
-        // Use original address for cleaner display
-        const displayAddress = nextTask.originalAddress || nextTask.address;
+        // Use original address for cleaner display with null safety
+        const displayAddress = nextTask.originalAddress || nextTask.address || nextTask.deliveryAddress || 'Address not available';
         const displayName = nextTask.customerName || nextTask.customerId || 'Customer';
+        const safeDisplayAddress = displayAddress ? displayAddress.replace(/'/g, "\\'") : 'Address not available';
         
         nextDestination.innerHTML = `
             <div class="flex justify-between items-start">
@@ -451,7 +462,7 @@ const updateNavigationInstructions = (route, currentLocation) => {
                     <p class="text-blue-200 text-sm">${displayAddress}</p>
                     ${distanceText}
                 </div>
-                <button onclick="window.openExternalNavigation('${nextTask.coordinates?.lat || ''},${nextTask.coordinates?.lng || ''}', '${displayAddress.replace(/'/g, "\\'")}')" 
+                <button onclick="window.openExternalNavigation(${nextTask.coordinates?.lat || 0}, ${nextTask.coordinates?.lng || 0}, '${safeDisplayAddress}')" 
                         class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs">
                     🗺️ Open in Maps
                 </button>

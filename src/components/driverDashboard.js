@@ -111,7 +111,8 @@ export const renderDriverDashboard = (userEmail) => {
                 </div>
 
                 <!-- Right Column: Tasks and Route Info -->
-                <div class="lg:col-span-1">
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- My Route Today Section -->
                     <section class="theme-card p-6 card-hover animate-slide-up" style="animation-delay: 0.5s;">
                         <div class="flex items-center space-x-3 mb-6">
                             <div class="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
@@ -124,7 +125,7 @@ export const renderDriverDashboard = (userEmail) => {
                                 <p class="text-sm theme-text-muted">Delivery assignments & progress</p>
                             </div>
                         </div>
-                        <div id="driver-tasks-container" class="space-y-4">
+                        <div id="driver-tasks-container" class="space-y-4 max-h-80 overflow-y-auto scrollbar-thin scrollbar-track-dark-700 scrollbar-thumb-dark-600">
                             <div class="text-center py-8 text-gray-500">
                                 <div class="w-16 h-16 bg-dark-700 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <svg class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -133,6 +134,66 @@ export const renderDriverDashboard = (userEmail) => {
                                 </div>
                                 <p class="font-medium mb-2">No route assigned yet</p>
                                 <p class="text-sm text-gray-400">Your delivery route will appear here once the dispatcher assigns tasks and optimizes routes</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Driver Performance KPI Section -->
+                    <section class="theme-card p-6 card-hover animate-slide-up" style="animation-delay: 0.6s;">
+                        <div class="flex items-center space-x-3 mb-6">
+                            <div class="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+                                <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold theme-text-primary">My Performance</h2>
+                                <p class="text-sm theme-text-muted">Today's delivery metrics</p>
+                            </div>
+                        </div>
+                        <div id="driver-kpi-container" class="space-y-3">
+                            <div class="flex justify-between items-center p-3 bg-dark-600/50 rounded-lg">
+                                <span class="text-sm theme-text-muted">Deliveries Today</span>
+                                <span id="kpi-deliveries-today" class="font-semibold theme-text-primary">--</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-dark-600/50 rounded-lg">
+                                <span class="text-sm theme-text-muted">Total Distance</span>
+                                <span id="kpi-total-distance" class="font-semibold theme-text-primary">-- km</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-dark-600/50 rounded-lg">
+                                <span class="text-sm theme-text-muted">Average Rating</span>
+                                <span id="kpi-avg-rating" class="font-semibold theme-text-primary">--/5</span>
+                            </div>
+                            <div class="flex justify-between items-center p-3 bg-dark-600/50 rounded-lg">
+                                <span class="text-sm theme-text-muted">On-Time Rate</span>
+                                <span id="kpi-ontime-rate" class="font-semibold theme-text-primary">--%</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Real-Time Delivery History Section -->
+                    <section class="theme-card p-6 card-hover animate-slide-up" style="animation-delay: 0.7s;">
+                        <div class="flex justify-between items-center mb-6">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-bold theme-text-primary">My Delivery History</h2>
+                                    <p class="text-sm theme-text-muted">Recent completed deliveries</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 text-sm text-gray-400">
+                                <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                <span>Live Updates</span>
+                            </div>
+                        </div>
+                        <div id="driver-delivery-history-container" class="max-h-60 overflow-y-auto scrollbar-thin scrollbar-track-dark-700 scrollbar-thumb-dark-600">
+                            <div class="text-center py-6 text-gray-500">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-3"></div>
+                                <p class="text-sm">Loading delivery history...</p>
                             </div>
                         </div>
                     </section>
