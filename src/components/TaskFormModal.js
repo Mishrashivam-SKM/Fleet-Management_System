@@ -137,6 +137,7 @@ const handleFormSubmit = async (e, taskId) => {
 
         const taskData = {
             customerId: formData.get('customerId'),
+            customerName: formData.get('customerId'), // Store as both ID and name for display
             demandVolume: parseInt(formData.get('demandVolume'), 10),
             // ALWAYS preserve original address exactly as entered by user
             originalAddress: originalAddress, // Exact user input - NEVER modify this

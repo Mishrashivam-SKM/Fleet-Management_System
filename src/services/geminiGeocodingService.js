@@ -74,7 +74,7 @@ Output: {"latitude": 19.2057, "longitude": 72.9750, "originalAddress": "Hiranand
         }],
         generationConfig: {
             temperature: 0.1, // Low temperature for consistent, accurate results
-            maxOutputTokens: 512,
+            maxOutputTokens: 1024, // Increased to ensure complete JSON response
         }
     };
     
@@ -122,6 +122,13 @@ Output: {"latitude": 19.2057, "longitude": 72.9750, "originalAddress": "Hiranand
         
         console.log('📥 Gemini raw response text:', text);
         
+        // Check if response was truncated due to token limits
+        if (candidate.finishReason === 'MAX_TOKENS') {
+            console.error('❌ Response truncated due to MAX_TOKENS limit');
+            console.error('Partial response:', text);
+            throw new Error('Response truncated: increase maxOutputTokens in API request');
+        }
+        
         // Extract JSON from markdown code blocks if present
         const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/\{[\s\S]*\}/);
         const jsonText = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : text;
@@ -133,6 +140,13 @@ Output: {"latitude": 19.2057, "longitude": 72.9750, "originalAddress": "Hiranand
             console.error('❌ Failed to parse JSON from Gemini response:', parseError);
             console.error('Raw text:', text);
             console.error('Extracted JSON text:', jsonText);
+            
+            // Check if this looks like a truncation issue
+            if (text.includes('"originalAddress"') && !text.trim().endsWith('}')) {
+                console.error('❌ Response appears to be truncated mid-JSON');
+                throw new Error('JSON parsing failed due to truncated response. Try increasing maxOutputTokens.');
+            }
+            
             throw new Error(`JSON parsing failed: ${parseError.message}`);
         }
         

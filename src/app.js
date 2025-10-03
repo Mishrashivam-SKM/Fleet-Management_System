@@ -76,28 +76,33 @@ window.openExternalNavigation = (lat, lng, originalAddress = null) => {
         return;
     }
     
-    // Check if on mobile device
+    // Format coordinates for Google Maps URL
+    const latDeg = Math.floor(Math.abs(numLat));
+    const latMin = Math.floor((Math.abs(numLat) - latDeg) * 60);
+    const latSec = ((Math.abs(numLat) - latDeg - latMin/60) * 3600).toFixed(1);
+    const latDir = numLat >= 0 ? 'N' : 'S';
+    
+    const lngDeg = Math.floor(Math.abs(numLng));
+    const lngMin = Math.floor((Math.abs(numLng) - lngDeg) * 60);
+    const lngSec = ((Math.abs(numLng) - lngDeg - lngMin/60) * 3600).toFixed(1);
+    const lngDir = numLng >= 0 ? 'E' : 'W';
+    
+    // Create proper Google Maps place URL format
+    const formattedCoords = `${latDeg}%C2%B0${latMin}'${latSec}%22${latDir}+${lngDeg}%C2%B0${lngMin}'${lngSec}%22${lngDir}`;
+    
+    // Check if on mobile device for API vs browser URL
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     let mapsUrl;
     
-    // Prefer original address for better navigation experience
-    if (originalAddress && originalAddress.trim() && originalAddress !== 'Address not available') {
-        const encodedAddress = encodeURIComponent(originalAddress.trim());
-        if (isMobile) {
-            mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
-        } else {
-            mapsUrl = `https://www.google.com/maps/search/${encodedAddress}`;
-        }
-        console.log("🏠 Using original address for navigation:", originalAddress);
+    if (isMobile) {
+        // Use directions API for mobile devices
+        mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${numLat},${numLng}`;
+        console.log("📱 Using mobile directions API:", numLat, numLng);
     } else {
-        // Use numeric coordinates directly
-        if (isMobile) {
-            mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${numLat},${numLng}`;
-        } else {
-            mapsUrl = `https://www.google.com/maps/search/${numLat},${numLng}`;
-        }
-        console.log("📍 Using numeric coordinates for navigation:", numLat, numLng);
+        // Use proper place URL format for desktop browsers
+        mapsUrl = `https://www.google.com/maps/place/${formattedCoords}/@${numLat},${numLng},17z/data=!3m1!4b1!4m4!3m3!8m2!3d${numLat}!4d${numLng}?entry=ttu`;
+        console.log("�️ Using desktop place URL format:", formattedCoords);
     }
     
     console.log("🗺️ Opening URL:", mapsUrl);
@@ -898,6 +903,31 @@ const setupDispatcherDashboard = async () => {
     // Load and display current KPIs
     fetchCurrentKPIs().then(kpis => renderReports(kpis));
     
+    // Set up real-time KPI updates for dispatcher dashboard
+    const setupDispatcherKPIUpdates = async () => {
+        try {
+            // Refresh KPIs periodically
+            const kpiInterval = setInterval(async () => {
+                try {
+                    console.log('🔄 Refreshing dispatcher KPIs...');
+                    const updatedKpis = await fetchCurrentKPIs();
+                    renderReports(updatedKpis);
+                } catch (error) {
+                    console.error('Error updating dispatcher KPIs:', error);
+                }
+            }, 10000); // Update every 10 seconds
+            
+            // Store cleanup function
+            if (!window.dispatcherCleanupFunctions) {
+                window.dispatcherCleanupFunctions = [];
+            }
+            window.dispatcherCleanupFunctions.push(() => clearInterval(kpiInterval));
+        } catch (error) {
+            console.error('Error setting up dispatcher KPI updates:', error);
+        }
+    };
+    setupDispatcherKPIUpdates();
+    
     // Load initial delivery history
     loadDeliveryHistory();
     
@@ -1267,7 +1297,7 @@ const renderPendingTasks = (tasks) => {
                 <div class="flex justify-between items-start">
                     <div class="flex-1">
                         <div class="flex items-center mb-2">
-                            <span class="font-semibold theme-text-primary">${task.customerId}</span>
+                            <span class="font-semibold theme-text-primary">${task.customerName || task.customerId || 'Unknown Customer'}</span>
                             <span class="text-sm theme-text-secondary ml-2">(Vol: ${task.demandVolume})</span>
                             ${geocodingBadge}
                         </div>
@@ -1379,7 +1409,7 @@ const renderDriverTasks = (tasks, tripLogId) => {
             return {
                 id: task.id,
                 customerId: task.customerId, // User-entered customer name
-                customerName: task.customerId, // For backward compatibility
+                customerName: task.customerId, // Store as customer name for display
                 address: originalAddress,
                 originalAddress,
                 coordinates,
@@ -1518,7 +1548,7 @@ const renderDriverTasks = (tasks, tripLogId) => {
         <div class="theme-card p-4 rounded-lg shadow mb-3 ${task.status === 'completed' ? 'opacity-75' : ''}">
             <div class="flex justify-between items-start mb-2">
                 <div class="flex-1">
-                    <h4 class="font-bold text-lg theme-text-primary">${index + 1}. ${task.customerId}</h4>
+                    <h4 class="font-bold text-lg theme-text-primary">${index + 1}. ${task.customerName || task.customerId || 'Unknown Customer'}</h4>
                     <p class="text-sm theme-text-secondary mt-1">${displayAddress}</p>
                     <p class="text-xs theme-text-muted">Volume: ${task.demandVolume}</p>
                 </div>
@@ -1653,13 +1683,18 @@ const handleMarkComplete = async (e) => {
         
         await updateTaskStatus(tripLogId, taskId, 'completed');
         
-        // Manually trigger KPI update to ensure it's refreshed
-        console.log('🔄 Triggering KPI update after task completion...');
+        // Manually trigger KPI update to ensure it's refreshed immediately
+        console.log('🔄 Triggering immediate KPI update after task completion...');
         try {
-            // Update both global and driver-specific KPIs
+            // Update global KPIs for dispatcher dashboard
             const kpis = await fetchCurrentKPIs();
             if (window.updateKPIDisplay) {
                 window.updateKPIDisplay(kpis);
+            }
+            // Also update reports view immediately if it exists
+            const reportsContainer = document.getElementById('reports-container');
+            if (reportsContainer) {
+                renderReports(kpis);
             }
             
             // Update driver-specific KPIs if we're in driver dashboard

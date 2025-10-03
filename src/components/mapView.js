@@ -386,24 +386,29 @@ export const showDriverRoute = (route, currentLocation) => {
         }
     });
 
-    // Draw route line if we have multiple points
-    if (route.tasks.length > 0) {
+    // Draw route line only for pending tasks (exclude completed ones)
+    const pendingTasksWithCoords = route.tasks
+        .filter(task => task.status !== 'completed' && // Only pending tasks
+            task.coordinates && 
+            typeof task.coordinates.lat === 'number' && 
+            typeof task.coordinates.lng === 'number' &&
+            !isNaN(task.coordinates.lat) && 
+            !isNaN(task.coordinates.lng));
+    
+    if (pendingTasksWithCoords.length > 0) {
         const routeCoords = [];
         
+        // Start from current location
         if (currentLocation) {
             routeCoords.push([currentLocation.lat, currentLocation.lng]);
         }
         
-        route.tasks
-            .filter(task => task.coordinates && 
-                typeof task.coordinates.lat === 'number' && 
-                typeof task.coordinates.lng === 'number' &&
-                !isNaN(task.coordinates.lat) && 
-                !isNaN(task.coordinates.lng))
-            .forEach(task => {
-                routeCoords.push([task.coordinates.lat, task.coordinates.lng]);
-            });
+        // Add only pending task locations
+        pendingTasksWithCoords.forEach(task => {
+            routeCoords.push([task.coordinates.lat, task.coordinates.lng]);
+        });
 
+        // Only draw line if we have at least 2 points (current location + 1 pending task)
         if (routeCoords.length > 1) {
             L.polyline(routeCoords, {
                 color: '#3B82F6',
@@ -411,7 +416,13 @@ export const showDriverRoute = (route, currentLocation) => {
                 opacity: 0.8,
                 dashArray: '10, 5'
             }).addTo(driverMarkersLayer);
+            
+            console.log(`🗺️ Route line drawn for ${pendingTasksWithCoords.length} pending tasks`);
+        } else {
+            console.log('🏁 No route line needed - all deliveries completed!');
         }
+    } else {
+        console.log('🎉 All tasks completed - no route lines to display');
     }
 
     // Fit map to show all markers with padding
