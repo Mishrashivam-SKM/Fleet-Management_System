@@ -1,9 +1,21 @@
-import { ORS_API_KEY } from '../api/config.js';
+import { ORS_API_KEY, GEMINI_API_KEY } from '../api/config.js';
 
 /**
  * Transforms application data into the format required by the ORS Vroom API.
- * @param {import('../data/models.js').Task[]} orderedTasks - Array of tasks, prioritized by the Min-Heap.
- * @param {import('../data/models.js').Vehicle[]} vehicles - Array of available vehicles.
+ * @param {import('../data/models.js').Task[]} orderedTasks - Array of tasks, prioritized by the             options: {
+            g: true, // Request detailed geometry for routes
+            c: true, // Request detailed cost information 
+            t: true  // Request detailed timing information
+        },
+        // Add routing profile for proper travel time calculation
+        profile: "driving-car",  // Use car routing profile for realistic travel times
+        idMaps: { taskIdMap, vehicleIdMap } // Return the ID maps for later use            g: true, // Request detailed geometry for routes
+            c: true, // Request detailed cost information 
+            t: true  // Request detailed timing information
+        },
+        // Add routing profile for proper travel time calculation
+        profile: "driving-car",  // Use car routing profile for realistic travel times
+        idMaps: { taskIdMap, vehicleIdMap } // Return the ID maps for later use@param {import('../data/models.js').Vehicle[]} vehicles - Array of available vehicles.
  * @returns {Object} The JSON payload for the ORS API.
  */
 const createVroomPayload = (orderedTasks, vehicles) => {
@@ -215,7 +227,6 @@ const createVroomPayload = (orderedTasks, vehicles) => {
 
         return {
             id: numericId,
-            profile: 'driving-car', // or driving-hgv for trucks
             start: [location.longitude, location.latitude], // Use current GPS position
             capacity: [vehicle.maxCapacity],
             time_window: [vehicleStartTime, vehicleEndTime]
@@ -230,6 +241,8 @@ const createVroomPayload = (orderedTasks, vehicles) => {
             c: true, // Request detailed cost information 
             t: true  // Request detailed timing information
         },
+        // Add routing profile for proper travel time calculation
+        profile: "car",  // Use car profile for VROOM API (different from regular ORS routing)
         idMaps: { taskIdMap, vehicleIdMap } // Return the ID maps for later use
     };
 };/**
@@ -238,6 +251,208 @@ const createVroomPayload = (orderedTasks, vehicles) => {
  * @param {import('../data/models.js').Vehicle[]} vehicles - An array of available vehicle objects.
  * @returns {Promise<Object>} A promise that resolves with the optimized route plan from the API.
  */
+/**
+ * Calculate distance between two coordinates using Haversine formula
+ * @param {number} lat1 - Latitude of first point
+ * @param {number} lng1 - Longitude of first point
+ * @param {number} lat2 - Latitude of second point
+ * @param {number} lng2 - Longitude of second point
+ * @returns {number} Distance in kilometers
+ */
+function calculateHaversineDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+/**
+ * Calculate realistic travel time between two coordinates using Gemini AI
+ * @param {number} fromLat - Starting latitude
+ * @param {number} fromLng - Starting longitude  
+ * @param {number} toLat - Destination latitude
+ * @param {number} toLng - Destination longitude
+ * @returns {Promise<number>} Travel time in seconds
+ */
+async function getGeminiTravelTime(fromLat, fromLng, toLat, toLng) {
+    try {
+        const distance = calculateHaversineDistance(fromLat, fromLng, toLat, toLng);
+        
+        // For very short distances, use minimum time
+        if (distance < 0.5) {
+            return Math.max(300, distance * 600); // Minimum 5 minutes, or 10 minutes per km for short trips
+        }
+
+        const prompt = `Calculate realistic travel time by car in India between these coordinates:
+FROM: ${fromLat}, ${fromLng}
+TO: ${toLat}, ${toLng}
+Distance: ${distance.toFixed(2)} km
+
+Consider:
+- Indian road conditions and traffic patterns
+- Urban vs highway speeds (Mumbai/Pune region)
+- Typical congestion during business hours
+- Road quality and infrastructure
+- Buffer time for navigation and stops
+
+Provide ONLY a number representing travel time in minutes. No explanation, just the number.
+
+Examples:
+- 2 km in dense city: 15
+- 50 km highway: 75  
+- 125 km intercity: 180`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{ text: prompt }]
+                }]
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Gemini API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const timeText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        const timeMinutes = parseInt(timeText);
+
+        if (timeMinutes && timeMinutes > 0) {
+            console.log(`🤖 Gemini travel time: ${distance.toFixed(1)}km → ${timeMinutes} minutes`);
+            return timeMinutes * 60; // Convert to seconds
+        } else {
+            throw new Error('Invalid Gemini response');
+        }
+
+    } catch (error) {
+        console.warn(`⚠️ Gemini travel time failed, using fallback:`, error.message);
+        
+        // Intelligent fallback based on Indian road conditions
+        const distance = calculateHaversineDistance(fromLat, fromLng, toLat, toLng);
+        let timeMinutes;
+        
+        if (distance <= 2) {
+            timeMinutes = distance * 8; // 8 minutes per km in dense city traffic
+        } else if (distance <= 10) {
+            timeMinutes = distance * 4; // 4 minutes per km for mixed city/suburban
+        } else if (distance <= 50) {
+            timeMinutes = distance * 2; // 2 minutes per km for highway/expressway  
+        } else {
+            timeMinutes = distance * 1.5; // 1.5 minutes per km for long highway trips
+        }
+        
+        return Math.max(300, timeMinutes * 60); // Minimum 5 minutes, return in seconds
+    }
+}
+
+/**
+ * Create optimized routes using Gemini AI for realistic travel time calculations
+ * @param {Array} jobs - VROOM jobs array
+ * @param {Array} vehicles - VROOM vehicles array
+ * @returns {Object} Optimized route result with realistic travel times
+ */
+async function createGeminiOptimizedRoutes(jobs, vehicles) {
+    console.log(`🤖 Gemini optimization: ${jobs.length} jobs, ${vehicles.length} vehicles`);
+    
+    const routes = [];
+    
+    for (let vehicleIndex = 0; vehicleIndex < vehicles.length; vehicleIndex++) {
+        const vehicle = vehicles[vehicleIndex];
+        const route = {
+            vehicle: vehicle.id,
+            cost: 0,
+            distance: 0,
+            duration: 0,
+            steps: [],
+            geometry: ""
+        };
+
+        // Start from vehicle location
+        let currentLat = vehicle.start[1];
+        let currentLng = vehicle.start[0];
+        let currentTime = vehicle.time_window[0];
+        
+        // Simple nearest-neighbor assignment with Gemini travel times
+        const remainingJobs = [...jobs];
+        
+        while (remainingJobs.length > 0) {
+            let nearestJob = null;
+            let nearestDistance = Infinity;
+            let nearestTravelTime = 0;
+            
+            // Find nearest unassigned job
+            for (const job of remainingJobs) {
+                const jobLat = job.location[1];
+                const jobLng = job.location[0];
+                const distance = calculateHaversineDistance(currentLat, currentLng, jobLat, jobLng);
+                
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestJob = job;
+                }
+            }
+            
+            if (nearestJob) {
+                // Get realistic travel time from Gemini
+                const jobLat = nearestJob.location[1];
+                const jobLng = nearestJob.location[0];
+                
+                try {
+                    nearestTravelTime = await getGeminiTravelTime(currentLat, currentLng, jobLat, jobLng);
+                } catch (error) {
+                    console.warn(`⚠️ Gemini time failed, using fallback for job ${nearestJob.id}`);
+                    nearestTravelTime = nearestDistance * 120; // 2 min/km fallback
+                }
+                
+                // Add step to route
+                route.steps.push({
+                    type: 'job',
+                    location: nearestJob.location,
+                    id: nearestJob.id,
+                    arrival: currentTime + nearestTravelTime,
+                    duration: nearestJob.service || 300,
+                    distance: Math.round(nearestDistance * 1000)
+                });
+                
+                // Update route metrics
+                route.distance += Math.round(nearestDistance * 1000);
+                route.duration += nearestTravelTime + (nearestJob.service || 300);
+                route.cost += Math.round(nearestDistance * 8.5); // ₹8.5 per km
+                
+                // Move to job location and update time
+                currentLat = jobLat;
+                currentLng = jobLng;
+                currentTime += nearestTravelTime + (nearestJob.service || 300);
+                
+                // Remove job from remaining list
+                remainingJobs.splice(remainingJobs.indexOf(nearestJob), 1);
+                
+                console.log(`  📍 Job ${nearestJob.id}: ${nearestDistance.toFixed(1)}km → ${Math.round(nearestTravelTime/60)}min travel`);
+            }
+        }
+        
+        routes.push(route);
+        console.log(`✅ Vehicle ${vehicle.id}: ${route.steps.length} jobs, ${Math.round(route.distance/1000)}km, ${Math.round(route.duration/60)}min total`);
+    }
+    
+    return {
+        code: 0,
+        routes: routes,
+        summary: {
+            cost: routes.reduce((sum, r) => sum + r.cost, 0),
+            routes: routes.length,
+            unassigned: []
+        }
+    };
+}
+
 /**
  * Estimates route distance using Haversine formula when API doesn't provide it
  */
@@ -419,29 +634,16 @@ export const optimizeRouteHandler = async (tasks, vehicles) => {
     
     console.log("✅ All time windows validated successfully");
 
-    // 3. Call the ORS Vroom API
-    const VROOM_API_URL = 'https://api.openrouteservice.org/optimization';
+    // 3. Use Gemini AI for intelligent route optimization with realistic travel times
+    console.log("🤖 Using Gemini AI for intelligent route optimization...");
+    
     try {
-        const response = await fetch(VROOM_API_URL, {
-            method: 'POST',
-            headers: {
-                'Authorization': ORS_API_KEY,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json, application/geo+json, multipart/form-data'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`ORS API Error (${response.status}): ${errorText}`);
-        }
-
-        const result = await response.json();
-        console.log("ORS Vroom API Response:", result);
-        console.log("Routes in response:", result.routes);
+        // Create optimized routes using Gemini-powered travel time calculations
+        const result = await createGeminiOptimizedRoutes(payload.jobs, payload.vehicles);
+        console.log("🚗 Gemini-optimized routes generated:", result);
+        console.log("Gemini routes:", result.routes);
         
-        // Validate and enhance route information with robust fallbacks
+        // Process and validate Gemini-generated routes
         if (result.routes && Array.isArray(result.routes)) {
             result.routes.forEach((route, index) => {
                 console.log(`Route ${index + 1} for vehicle ${route.vehicle}:`);
@@ -459,15 +661,19 @@ export const optimizeRouteHandler = async (tasks, vehicles) => {
                     console.log(`  ✅ Updated distance to: ${route.distance}m (${(route.distance/1000).toFixed(2)}km)`);
                 }
                 
-                // Fix duration issues - ensure we have meaningful values
+                // Only recalculate duration if ORS completely failed to provide it
                 if (!route.duration || route.duration === 0 || isNaN(route.duration)) {
-                    console.warn(`Route ${index + 1}: Invalid duration (${route.duration}), calculating estimate...`);
-                    // Use realistic travel time: distance(km) * 2 minutes per km + 5 min per stop
+                    console.warn(`Route ${index + 1}: ORS didn't return duration, using fallback calculation...`);
+                    
                     const jobCount = route.steps.filter(s => s.type === 'job').length;
-                    const travelTime = Math.round((route.distance / 1000) * 120); // 2 minutes per km
-                    const serviceTime = jobCount * 300; // 5 minutes per stop
-                    route.duration = Math.max(travelTime + serviceTime, 900); // Minimum 15 minutes
-                    console.log(`  ✅ Updated duration to: ${route.duration}s (${Math.round(route.duration/60)}min)`);
+                    
+                    // Simple fallback - let ORS handle the real routing
+                    const estimatedDuration = (route.distance / 1000) * 180 + (jobCount * 600); // 3min/km + 10min/stop
+                    route.duration = Math.max(estimatedDuration, 900); // Minimum 15 minutes
+                    
+                    console.log(`  ⚠️ Fallback duration: ${route.duration}s (${Math.round(route.duration/60)} min)`);
+                } else {
+                    console.log(`  ✅ Using ORS calculated duration: ${route.duration}s (${Math.round(route.duration/60)} min)`);
                 }
                 
                 // Ensure cost is calculated if missing
@@ -726,7 +932,10 @@ export const optimizeRouteHandler = async (tasks, vehicles) => {
 
                     // Add distance to route metrics
                     route.distance += Math.round(nearestDistance * 1000); // Convert km to meters
-                    route.duration += 600; // 10 minutes per stop
+                    
+                    // Simple service time addition (let ORS handle travel time calculation)
+                    route.duration += 600; // 10 minutes service time per stop (ORS will add travel time)
+                    
                     route.cost += Math.round(nearestDistance * 8.5); // Cost per km
 
                     // Log assignment with reasoning

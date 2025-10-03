@@ -5,6 +5,26 @@
  */
 
 /**
+ * Formats duration in seconds to a human-readable string
+ * @param {number} seconds - Duration in seconds
+ * @returns {string} Formatted duration (e.g., "2h 30m", "45 min", "1h 5m")
+ */
+const formatDuration = (seconds) => {
+    if (!seconds || seconds === 0) return '0 min';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (hours === 0) {
+        return `${minutes} min`;
+    } else if (minutes === 0) {
+        return `${hours}h`;
+    } else {
+        return `${hours}h ${minutes}m`;
+    }
+};
+
+/**
  * Renders the optimized routes into the designated container.
  * @param {Array<object>} routes - The array of route objects from the optimization result.
  */
@@ -56,7 +76,7 @@ export const renderOptimizedRoutes = (routes) => {
                     <div class="text-blue-700">Total Distance</div>
                 </div>
                 <div class="text-center">
-                    <div class="text-2xl font-bold text-blue-600">${Math.round(totalTime / 60)} min</div>
+                    <div class="text-2xl font-bold text-blue-600">${formatDuration(totalTime)}</div>
                     <div class="text-blue-700">Total Time</div>
                 </div>
             </div>
@@ -101,7 +121,7 @@ export const renderOptimizedRoutes = (routes) => {
                         </div>
                         <div class="text-right">
                             <div class="text-2xl font-bold">${distanceInKm} km</div>
-                            <div class="text-indigo-200 text-sm">${durationInMinutes} minutes</div>
+                            <div class="text-indigo-200 text-sm">${formatDuration(route.duration)}</div>
                         </div>
                     </div>
                 </div>
