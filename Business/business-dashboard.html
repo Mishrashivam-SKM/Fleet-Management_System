@@ -3,70 +3,259 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fleet Management Platform - Business Dashboard</title>
+    <title>Fleet Management System - Business Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        :root {
+            --primary-500: #3b82f6;
+            --primary-600: #2563eb;
+            --primary-700: #1d4ed8;
+            --dark-700: #374151;
+            --dark-800: #1f2937;
+            --dark-900: #111827;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #111827;
+            --bg-secondary: #1f2937;
+            --bg-tertiary: #374151;
+            --text-primary: #f9fafb;
+            --text-secondary: #d1d5db;
+            --text-muted: #9ca3af;
+            --border-color: #374151;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #374151;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+        }
+
+        .theme-bg-primary { background-color: var(--bg-primary); }
+        .theme-bg-secondary { background-color: var(--bg-secondary); }
+        .theme-bg-tertiary { background-color: var(--bg-tertiary); }
+        .theme-text-primary { color: var(--text-primary); }
+        .theme-text-secondary { color: var(--text-secondary); }
+        .theme-text-muted { color: var(--text-muted); }
+        .theme-border { border-color: var(--border-color); }
+        .theme-card { 
+            background-color: var(--bg-secondary); 
+            border: 1px solid var(--border-color);
+        }
+
         .gradient-bg {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
+
         .card-hover {
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
+
         .card-hover:hover {
             transform: translateY(-2px);
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         }
-        .metric-card {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 50%, #4facfe 100%);
+
+        .animate-fade-in {
+            animation: fadeIn 0.6s ease-in-out;
         }
-        .progress-bar {
-            background: linear-gradient(90deg, #4facfe, #00f2fe);
+
+        .animate-slide-up {
+            animation: slideUp 0.6s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .metric-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: conic-gradient(from 0deg, #3b82f6, #8b5cf6, #3b82f6);
+        }
+
+        .metric-circle::before {
+            content: '';
+            position: absolute;
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+        }
+
+        .metric-value {
+            position: relative;
+            z-index: 1;
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+
+        .infographic-item {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .infographic-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+            z-index: -1;
+        }
+
+        .scroll-to-top {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .scroll-to-top.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
+<body class="theme-bg-primary theme-text-primary transition-colors duration-300" data-theme="dark">
     
-    <!-- Header -->
-    <header class="gradient-bg text-white shadow-lg">
-        <div class="container mx-auto px-6 py-8">
+    <!-- Theme Toggle & Header -->
+    <header class="theme-bg-secondary theme-border border-b sticky top-0 z-50">
+        <div class="container mx-auto px-6 py-4">
             <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-4xl font-bold mb-2">Fleet Management Platform</h1>
-                    <p class="text-xl opacity-90">Business Strategy & Operations Dashboard</p>
+                <div class="flex items-center space-x-4">
+                    <div class="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-truck text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold theme-text-primary gradient-text">Fleet Management System</h1>
+                        <p class="text-sm theme-text-muted">Business Intelligence Dashboard</p>
+                    </div>
                 </div>
-                <div class="text-right">
-                    <p class="text-lg font-semibold">September 30, 2025</p>
-                    <p class="opacity-75">Cloud-Native Fleet Management System</p>
+                <div class="flex items-center space-x-4">
+                    <button id="themeToggle" class="theme-bg-tertiary hover:bg-gray-600 p-2 rounded-lg transition-colors">
+                        <i id="themeIcon" class="fas fa-moon theme-text-primary"></i>
+                    </button>
+                    <div class="text-right">
+                        <p class="text-sm theme-text-secondary">October 6, 2025</p>
+                        <p class="text-xs theme-text-muted">Real-time Analytics</p>
+                    </div>
                 </div>
             </div>
         </div>
     </header>
 
+    <!-- Hero Section with Infographics -->
+    <section class="gradient-bg text-white py-12">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-12 animate-fade-in">
+                <h2 class="text-4xl font-bold mb-4">Advanced Fleet Management Platform</h2>
+                <p class="text-xl opacity-90 max-w-3xl mx-auto">
+                    Revolutionizing logistics through AI-powered route optimization, real-time tracking, and intelligent analytics
+                </p>
+            </div>
+            
+            <!-- Key Metrics Infographic -->
+            <div class="grid md:grid-cols-4 gap-6 animate-slide-up">
+                <div class="text-center">
+                    <div class="metric-circle mx-auto mb-4">
+                        <div class="metric-value text-white">95%</div>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2">On-Time Delivery</h3>
+                    <p class="text-sm opacity-80">Industry-leading delivery precision</p>
+                </div>
+                <div class="text-center">
+                    <div class="metric-circle mx-auto mb-4">
+                        <div class="metric-value text-white">₹15</div>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2">Cost Per KM</h3>
+                    <p class="text-sm opacity-80">Optimized operational efficiency</p>
+                </div>
+                <div class="text-center">
+                    <div class="metric-circle mx-auto mb-4">
+                        <div class="metric-value text-white">85%</div>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2">Fleet Utilization</h3>
+                    <p class="text-sm opacity-80">Maximum resource optimization</p>
+                </div>
+                <div class="text-center">
+                    <div class="metric-circle mx-auto mb-4">
+                        <div class="metric-value text-white">25%</div>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2">Cost Reduction</h3>
+                    <p class="text-sm opacity-80">Significant operational savings</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Executive Summary -->
     <section class="container mx-auto px-6 py-12">
-        <div class="bg-white rounded-xl shadow-lg p-8 card-hover">
-            <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b-4 border-blue-500 pb-2">
-                <i class="fas fa-chart-line mr-3"></i>Executive Summary
+        <div class="theme-card rounded-xl shadow-lg p-8 card-hover">
+            <h2 class="text-3xl font-bold mb-6 theme-text-primary border-b-4 border-blue-500 pb-2">
+                <i class="fas fa-chart-line mr-3 text-blue-500"></i>Executive Summary
             </h2>
             <div class="grid md:grid-cols-2 gap-8">
                 <div>
-                    <p class="text-lg leading-relaxed text-gray-700 mb-6">
+                    <p class="text-lg leading-relaxed theme-text-secondary mb-6">
                         The Fleet Management Platform represents a comprehensive digital transformation solution designed to optimize last-mile delivery operations through intelligent route planning, real-time tracking, and performance analytics.
                     </p>
                     <div class="space-y-3">
                         <div class="flex items-center">
                             <i class="fas fa-check-circle text-green-500 mr-3"></i>
-                            <span class="font-semibold">Customer-centric service design</span>
+                            <span class="font-semibold theme-text-primary">Customer-centric service design</span>
                         </div>
                         <div class="flex items-center">
                             <i class="fas fa-check-circle text-green-500 mr-3"></i>
-                            <span class="font-semibold">Data-driven performance management</span>
+                            <span class="font-semibold theme-text-primary">Data-driven performance management</span>
                         </div>
                         <div class="flex items-center">
                             <i class="fas fa-check-circle text-green-500 mr-3"></i>
-                            <span class="font-semibold">Scalable cloud-native architecture</span>
+                            <span class="font-semibold theme-text-primary">Scalable cloud-native architecture</span>
                         </div>
                     </div>
                 </div>
@@ -96,58 +285,58 @@
 
     <!-- CRM & STP Strategy -->
     <section class="container mx-auto px-6 py-12">
-        <div class="bg-white rounded-xl shadow-lg p-8 card-hover">
-            <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b-4 border-indigo-500 pb-2">
-                <i class="fas fa-users mr-3"></i>CRM & STP Strategy Framework
+        <div class="theme-card rounded-xl shadow-lg p-8 card-hover">
+            <h2 class="text-3xl font-bold mb-6 theme-text-primary border-b-4 border-indigo-500 pb-2">
+                <i class="fas fa-users mr-3 text-indigo-500"></i>CRM & STP Strategy Framework
             </h2>
             
             <div class="grid lg:grid-cols-2 gap-8 mb-8">
                 <!-- Customer Segmentation -->
                 <div>
-                    <h3 class="text-xl font-bold mb-4 text-gray-800">Target Market Segments</h3>
+                    <h3 class="text-xl font-bold mb-4 theme-text-primary">Target Market Segments</h3>
                     <div class="space-y-4">
-                        <div class="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border-l-4 border-blue-500">
-                            <h4 class="font-semibold text-blue-800 mb-2">E-commerce Platforms (60% Revenue Focus)</h4>
-                            <p class="text-sm text-gray-700 mb-2">200+ employees, ₹200+ crore revenue</p>
-                            <p class="text-xs text-blue-700 font-semibold">CLV: ₹84,00,000 (48 months) | Deal Size: ₹45 lakh annually</p>
+                        <div class="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 p-4 rounded-lg border-l-4 border-blue-500">
+                            <h4 class="font-semibold text-blue-800 dark:text-blue-200 mb-2">E-commerce Platforms (60% Revenue Focus)</h4>
+                            <p class="text-sm text-gray-700 dark:text-gray-300 mb-2">200+ employees, ₹200+ crore revenue</p>
+                            <p class="text-xs text-blue-700 dark:text-blue-300 font-semibold">CLV: ₹84,00,000 (48 months) | Deal Size: ₹45 lakh annually</p>
                         </div>
-                        <div class="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border-l-4 border-green-500">
-                            <h4 class="font-semibold text-green-800 mb-2">FMCG Distributors (30% Revenue Focus)</h4>
-                            <p class="text-sm text-gray-700 mb-2">100-500 employees, ₹100-500 crore revenue</p>
-                            <p class="text-xs text-green-700 font-semibold">CLV: ₹18,90,000 (36 months) | Deal Size: ₹12 lakh annually</p>
+                        <div class="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900 dark:to-green-800 p-4 rounded-lg border-l-4 border-green-500">
+                            <h4 class="font-semibold text-green-800 dark:text-green-200 mb-2">FMCG Distributors (30% Revenue Focus)</h4>
+                            <p class="text-sm text-gray-700 dark:text-gray-300 mb-2">100-500 employees, ₹100-500 crore revenue</p>
+                            <p class="text-xs text-green-700 dark:text-green-300 font-semibold">CLV: ₹18,90,000 (36 months) | Deal Size: ₹12 lakh annually</p>
                         </div>
-                        <div class="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-lg border-l-4 border-purple-500">
-                            <h4 class="font-semibold text-purple-800 mb-2">Regional Service Providers (10% Revenue Focus)</h4>
-                            <p class="text-sm text-gray-700 mb-2">50-200 employees, ₹50-200 crore revenue</p>
-                            <p class="text-xs text-purple-700 font-semibold">CLV: ₹4,20,000 (24 months) | Deal Size: ₹3 lakh annually</p>
+                        <div class="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900 dark:to-purple-800 p-4 rounded-lg border-l-4 border-purple-500">
+                            <h4 class="font-semibold text-purple-800 dark:text-purple-200 mb-2">Regional Service Providers (10% Revenue Focus)</h4>
+                            <p class="text-sm text-gray-700 dark:text-gray-300 mb-2">50-200 employees, ₹50-200 crore revenue</p>
+                            <p class="text-xs text-purple-700 dark:text-purple-300 font-semibold">CLV: ₹4,20,000 (24 months) | Deal Size: ₹3 lakh annually</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Positioning Strategy -->
                 <div>
-                    <h3 class="text-xl font-bold mb-4 text-gray-800">Market Positioning</h3>
-                    <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 p-6 rounded-lg border border-indigo-200">
-                        <h4 class="font-bold text-indigo-800 mb-3">Positioning Statement</h4>
-                        <p class="text-sm italic text-gray-700 mb-4">
+                    <h3 class="text-xl font-bold mb-4 theme-text-primary">Market Positioning</h3>
+                    <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900 dark:to-indigo-800 p-6 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                        <h4 class="font-bold text-indigo-800 dark:text-indigo-200 mb-3">Positioning Statement</h4>
+                        <p class="text-sm italic text-gray-700 dark:text-gray-300 mb-4">
                             "The Fleet Management Platform is the intelligent logistics optimization solution that enables growing businesses to achieve industry-leading delivery performance while reducing operational costs through advanced route optimization and real-time visibility."
                         </p>
                         <div class="grid grid-cols-2 gap-3 text-xs">
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold text-indigo-800">vs. Legacy Systems:</span>
-                                <p class="text-gray-600">30 days vs. 6-12 months implementation</p>
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold text-indigo-800 dark:text-indigo-300">vs. Legacy Systems:</span>
+                                <p class="text-gray-600 dark:text-gray-300">30 days vs. 6-12 months implementation</p>
                             </div>
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold text-indigo-800">vs. International:</span>
-                                <p class="text-gray-600">40-50% lower pricing, local market fit</p>
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold text-indigo-800 dark:text-indigo-300">vs. International:</span>
+                                <p class="text-gray-600 dark:text-gray-300">40-50% lower pricing, local market fit</p>
                             </div>
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold text-indigo-800">vs. Domestic Startups:</span>
-                                <p class="text-gray-600">Advanced algorithms, proven track record</p>
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold text-indigo-800 dark:text-indigo-300">vs. Domestic Startups:</span>
+                                <p class="text-gray-600 dark:text-gray-300">Advanced algorithms, proven track record</p>
                             </div>
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold text-indigo-800">Market Opportunity:</span>
-                                <p class="text-gray-600">₹21,000+ crore addressable market</p>
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold text-indigo-800 dark:text-indigo-300">Market Opportunity:</span>
+                                <p class="text-gray-600 dark:text-gray-300">₹21,000+ crore addressable market</p>
                             </div>
                         </div>
                     </div>
@@ -156,67 +345,67 @@
 
             <!-- STP Strategy Details -->
             <div class="mt-8">
-                <h3 class="text-xl font-bold mb-4 text-gray-800">Complete STP Strategy Framework</h3>
+                <h3 class="text-xl font-bold mb-4 theme-text-primary">Complete STP Strategy Framework</h3>
                 <div class="grid lg:grid-cols-3 gap-6 mb-6">
                     <!-- Segmentation -->
-                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
-                        <h4 class="font-bold text-blue-800 mb-3">
+                    <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 p-6 rounded-lg border border-blue-200 dark:border-blue-700">
+                        <h4 class="font-bold text-blue-800 dark:text-blue-200 mb-3">
                             <i class="fas fa-chart-pie mr-2"></i>Market Segmentation
                         </h4>
                         <div class="space-y-3 text-sm">
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold">Geographic:</span> Tier 1/2/3 cities
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold theme-text-primary">Geographic:</span> Tier 1/2/3 cities
                             </div>
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold">Industry:</span> E-commerce, FMCG, 3PL
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold theme-text-primary">Industry:</span> E-commerce, FMCG, 3PL
                             </div>
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold">Company Size:</span> SME to Enterprise
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold theme-text-primary">Company Size:</span> SME to Enterprise
                             </div>
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold">Technology:</span> Leaders to Followers
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold theme-text-primary">Technology:</span> Leaders to Followers
                             </div>
                         </div>
                     </div>
 
                     <!-- Targeting -->
-                    <div class="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
-                        <h4 class="font-bold text-green-800 mb-3">
+                    <div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900 dark:to-green-800 p-6 rounded-lg border border-green-200 dark:border-green-700">
+                        <h4 class="font-bold text-green-800 dark:text-green-200 mb-3">
                             <i class="fas fa-crosshairs mr-2"></i>Target Selection
                         </h4>
                         <div class="space-y-2 text-sm">
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold text-green-700">Primary:</span> E-commerce (₹675 cr TAM)
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold text-green-700 dark:text-green-300">Primary:</span> E-commerce (₹675 cr TAM)
                             </div>
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold text-green-700">Secondary:</span> FMCG (₹336 cr TAM)
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold text-green-700 dark:text-green-300">Secondary:</span> FMCG (₹336 cr TAM)
                             </div>
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold text-green-700">Tertiary:</span> Regional (₹96 cr TAM)
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold text-green-700 dark:text-green-300">Tertiary:</span> Regional (₹96 cr TAM)
                             </div>
-                            <div class="bg-green-200 p-2 rounded">
-                                <span class="font-semibold text-green-800">Total TAM: ₹21,000+ crore</span>
+                            <div class="bg-green-200 dark:bg-green-700 p-2 rounded">
+                                <span class="font-semibold text-green-800 dark:text-green-200">Total TAM: ₹21,000+ crore</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Positioning -->
-                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200">
-                        <h4 class="font-bold text-purple-800 mb-3">
+                    <div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900 dark:to-purple-800 p-6 rounded-lg border border-purple-200 dark:border-purple-700">
+                        <h4 class="font-bold text-purple-800 dark:text-purple-200 mb-3">
                             <i class="fas fa-trophy mr-2"></i>Competitive Position
                         </h4>
                         <div class="space-y-2 text-sm">
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold">vs Legacy:</span> 30 days vs 6 months
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold theme-text-primary">vs Legacy:</span> 30 days vs 6 months
                             </div>
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold">vs International:</span> 40-50% cost savings
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold theme-text-primary">vs International:</span> 40-50% cost savings
                             </div>
-                            <div class="bg-white p-2 rounded">
-                                <span class="font-semibold">vs Startups:</span> Proven algorithms
+                            <div class="bg-white dark:bg-gray-700 p-2 rounded">
+                                <span class="font-semibold theme-text-primary">vs Startups:</span> Proven algorithms
                             </div>
-                            <div class="bg-purple-200 p-2 rounded">
-                                <span class="font-semibold text-purple-800">Win Rate Target: >70%</span>
+                            <div class="bg-purple-200 dark:bg-purple-700 p-2 rounded">
+                                <span class="font-semibold text-purple-800 dark:text-purple-200">Win Rate Target: >70%</span>
                             </div>
                         </div>
                     </div>
@@ -295,7 +484,7 @@
                     <ul class="space-y-2 text-gray-700">
                         <li class="flex items-start">
                             <i class="fas fa-arrow-right text-green-500 mr-2 mt-1 text-sm"></i>
-                            Min-Heap priority queue sorting
+                            Deadline-aware task prioritization
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-arrow-right text-green-500 mr-2 mt-1 text-sm"></i>
@@ -303,11 +492,11 @@
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-arrow-right text-green-500 mr-2 mt-1 text-sm"></i>
-                            Constraint satisfaction processing
+                            Distance-optimized nearest-neighbor heuristic
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-arrow-right text-green-500 mr-2 mt-1 text-sm"></i>
-                            Multi-objective optimization
+                            Constraint satisfaction processing
                         </li>
                     </ul>
                     <div class="mt-4 p-3 bg-green-200 rounded-lg">
@@ -597,7 +786,7 @@
                         <div class="bg-gradient-to-r from-pink-50 to-pink-100 p-4 rounded-lg border-l-4 border-pink-500">
                             <h4 class="font-semibold text-pink-800 mb-2">Performance Optimization</h4>
                             <ul class="text-sm text-gray-700 space-y-1">
-                                <li>• O(log n) Min-Heap task prioritization</li>
+                                <li>• O(n²) deadline-aware distance optimization</li>
                                 <li>• Intelligent data caching strategies</li>
                                 <li>• Asynchronous processing operations</li>
                                 <li>• Progressive enhancement design</li>
@@ -611,54 +800,54 @@
 
     <!-- ROI Analysis -->
     <section class="container mx-auto px-6 py-12">
-        <div class="bg-white rounded-xl shadow-lg p-8 card-hover">
-            <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b-4 border-green-500 pb-2">
-                <i class="fas fa-chart-pie mr-3"></i>Return on Investment (ROI) Analysis
+        <div class="theme-card rounded-xl shadow-lg p-8 card-hover">
+            <h2 class="text-3xl font-bold mb-6 theme-text-primary border-b-4 border-green-500 pb-2">
+                <i class="fas fa-chart-pie mr-3 text-green-500"></i>Return on Investment (ROI) Analysis
             </h2>
             
             <div class="grid lg:grid-cols-2 gap-8 mb-8">
                 <!-- Cost Savings -->
                 <div>
-                    <h3 class="text-xl font-bold mb-4 text-gray-800">Operational Cost Savings</h3>
+                    <h3 class="text-xl font-bold mb-4 theme-text-primary">Operational Cost Savings</h3>
                     <div class="space-y-3">
-                        <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                            <span class="font-medium">Route Optimization</span>
-                            <span class="text-green-600 font-bold">25-30% fuel reduction</span>
+                        <div class="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900 rounded-lg">
+                            <span class="font-medium theme-text-primary">Route Optimization</span>
+                            <span class="text-green-600 dark:text-green-400 font-bold">25-30% fuel reduction</span>
                         </div>
-                        <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                            <span class="font-medium">Driver Productivity</span>
-                            <span class="text-blue-600 font-bold">20% improvement</span>
+                        <div class="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900 rounded-lg">
+                            <span class="font-medium theme-text-primary">Driver Productivity</span>
+                            <span class="text-blue-600 dark:text-blue-400 font-bold">20% improvement</span>
                         </div>
-                        <div class="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
-                            <span class="font-medium">Vehicle Efficiency</span>
-                            <span class="text-purple-600 font-bold">15% fleet reduction</span>
+                        <div class="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-900 rounded-lg">
+                            <span class="font-medium theme-text-primary">Vehicle Efficiency</span>
+                            <span class="text-purple-600 dark:text-purple-400 font-bold">15% fleet reduction</span>
                         </div>
-                        <div class="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
-                            <span class="font-medium">Administrative Overhead</span>
-                            <span class="text-orange-600 font-bold">40% time reduction</span>
+                        <div class="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-900 rounded-lg">
+                            <span class="font-medium theme-text-primary">Administrative Overhead</span>
+                            <span class="text-orange-600 dark:text-orange-400 font-bold">40% time reduction</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Revenue Enhancement -->
                 <div>
-                    <h3 class="text-xl font-bold mb-4 text-gray-800">Revenue Enhancement</h3>
+                    <h3 class="text-xl font-bold mb-4 theme-text-primary">Revenue Enhancement</h3>
                     <div class="space-y-3">
-                        <div class="flex justify-between items-center p-3 bg-indigo-50 rounded-lg">
-                            <span class="font-medium">Premium Service Tiers</span>
-                            <span class="text-indigo-600 font-bold">15-25% price premium</span>
+                        <div class="flex justify-between items-center p-3 bg-indigo-50 dark:bg-indigo-900 rounded-lg">
+                            <span class="font-medium theme-text-primary">Premium Service Tiers</span>
+                            <span class="text-indigo-600 dark:text-indigo-400 font-bold">15-25% price premium</span>
                         </div>
-                        <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                            <span class="font-medium">Customer Retention</span>
-                            <span class="text-green-600 font-bold">90% retention rate</span>
+                        <div class="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900 rounded-lg">
+                            <span class="font-medium theme-text-primary">Customer Retention</span>
+                            <span class="text-green-600 dark:text-green-400 font-bold">90% retention rate</span>
                         </div>
-                        <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
-                            <span class="font-medium">Market Expansion</span>
-                            <span class="text-red-600 font-bold">35% faster growth</span>
+                        <div class="flex justify-between items-center p-3 bg-red-50 dark:bg-red-900 rounded-lg">
+                            <span class="font-medium theme-text-primary">Market Expansion</span>
+                            <span class="text-red-600 dark:text-red-400 font-bold">35% faster growth</span>
                         </div>
-                        <div class="flex justify-between items-center p-3 bg-teal-50 rounded-lg">
-                            <span class="font-medium">Service Differentiation</span>
-                            <span class="text-teal-600 font-bold">20-30% advantage</span>
+                        <div class="flex justify-between items-center p-3 bg-teal-50 dark:bg-teal-900 rounded-lg">
+                            <span class="font-medium theme-text-primary">Service Differentiation</span>
+                            <span class="text-teal-600 dark:text-teal-400 font-bold">20-30% advantage</span>
                         </div>
                     </div>
                 </div>
@@ -666,25 +855,25 @@
 
             <!-- Implementation Timeline -->
             <div>
-                <h3 class="text-xl font-bold mb-4 text-gray-800">Implementation ROI Timeline</h3>
+                <h3 class="text-xl font-bold mb-4 theme-text-primary">Implementation ROI Timeline</h3>
                 <div class="grid md:grid-cols-3 gap-4">
-                    <div class="bg-gradient-to-br from-red-100 to-red-200 p-6 rounded-lg text-center">
-                        <h4 class="font-bold text-red-800 mb-2">Phase 1 (Months 1-3)</h4>
-                        <p class="text-sm text-gray-700 mb-3">Foundation & Core Operations</p>
-                        <div class="text-2xl font-bold text-red-600">15-20%</div>
-                        <p class="text-xs text-gray-600">Operational efficiency improvement</p>
+                    <div class="bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900 dark:to-red-800 p-6 rounded-lg text-center">
+                        <h4 class="font-bold text-red-800 dark:text-red-200 mb-2">Phase 1 (Months 1-3)</h4>
+                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">Foundation & Core Operations</p>
+                        <div class="text-2xl font-bold text-red-600 dark:text-red-400">15-20%</div>
+                        <p class="text-xs text-gray-600 dark:text-gray-400">Operational efficiency improvement</p>
                     </div>
-                    <div class="bg-gradient-to-br from-yellow-100 to-yellow-200 p-6 rounded-lg text-center">
-                        <h4 class="font-bold text-yellow-800 mb-2">Phase 2 (Months 4-6)</h4>
-                        <p class="text-sm text-gray-700 mb-3">Advanced Analytics</p>
-                        <div class="text-2xl font-bold text-yellow-600">25-35%</div>
-                        <p class="text-xs text-gray-600">Overall operational improvement</p>
+                    <div class="bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900 dark:to-yellow-800 p-6 rounded-lg text-center">
+                        <h4 class="font-bold text-yellow-800 dark:text-yellow-200 mb-2">Phase 2 (Months 4-6)</h4>
+                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">Advanced Analytics</p>
+                        <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">25-35%</div>
+                        <p class="text-xs text-gray-600 dark:text-gray-400">Overall operational improvement</p>
                     </div>
-                    <div class="bg-gradient-to-br from-green-100 to-green-200 p-6 rounded-lg text-center">
-                        <h4 class="font-bold text-green-800 mb-2">Phase 3 (Months 7-12)</h4>
-                        <p class="text-sm text-gray-700 mb-3">Scale & Innovation</p>
-                        <div class="text-2xl font-bold text-green-600">40-60%</div>
-                        <p class="text-xs text-gray-600">Comprehensive improvement</p>
+                    <div class="bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900 dark:to-green-800 p-6 rounded-lg text-center">
+                        <h4 class="font-bold text-green-800 dark:text-green-200 mb-2">Phase 3 (Months 7-12)</h4>
+                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">Scale & Innovation</p>
+                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">40-60%</div>
+                        <p class="text-xs text-gray-600 dark:text-gray-400">Comprehensive improvement</p>
                     </div>
                 </div>
             </div>
@@ -695,42 +884,42 @@
 
     <!-- Strategic Recommendations -->
     <section class="container mx-auto px-6 py-12">
-        <div class="bg-white rounded-xl shadow-lg p-8 card-hover">
-            <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b-4 border-purple-500 pb-2">
-                <i class="fas fa-lightbulb mr-3"></i>Strategic Recommendations & Future Roadmap
+        <div class="theme-card rounded-xl shadow-lg p-8 card-hover">
+            <h2 class="text-3xl font-bold mb-6 theme-text-primary border-b-4 border-purple-500 pb-2">
+                <i class="fas fa-lightbulb mr-3 text-purple-500"></i>Strategic Recommendations & Future Roadmap
             </h2>
             
             <div class="grid lg:grid-cols-2 gap-8">
                 <!-- Immediate Priorities -->
                 <div>
-                    <h3 class="text-xl font-bold mb-4 text-gray-800">Immediate Implementation Priorities</h3>
+                    <h3 class="text-xl font-bold mb-4 theme-text-primary">Immediate Implementation Priorities</h3>
                     <div class="space-y-3">
-                        <div class="flex items-start p-3 bg-blue-50 rounded-lg">
+                        <div class="flex items-start p-3 bg-blue-50 dark:bg-blue-900 rounded-lg">
                             <div class="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 mt-0.5 text-sm font-bold">1</div>
                             <div>
-                                <h4 class="font-semibold text-blue-800">Performance Excellence Focus</h4>
-                                <p class="text-sm text-gray-600">Establish OTD as primary success metric</p>
+                                <h4 class="font-semibold text-blue-800 dark:text-blue-200">Performance Excellence Focus</h4>
+                                <p class="text-sm text-gray-600 dark:text-gray-300">Establish OTD as primary success metric</p>
                             </div>
                         </div>
-                        <div class="flex items-start p-3 bg-green-50 rounded-lg">
+                        <div class="flex items-start p-3 bg-green-50 dark:bg-green-900 rounded-lg">
                             <div class="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 mt-0.5 text-sm font-bold">2</div>
                             <div>
-                                <h4 class="font-semibold text-green-800">Customer Communication Enhancement</h4>
-                                <p class="text-sm text-gray-600">Implement proactive delivery updates</p>
+                                <h4 class="font-semibold text-green-800 dark:text-green-200">Customer Communication Enhancement</h4>
+                                <p class="text-sm text-gray-600 dark:text-gray-300">Implement proactive delivery updates</p>
                             </div>
                         </div>
-                        <div class="flex items-start p-3 bg-purple-50 rounded-lg">
+                        <div class="flex items-start p-3 bg-purple-50 dark:bg-purple-900 rounded-lg">
                             <div class="bg-purple-500 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 mt-0.5 text-sm font-bold">3</div>
                             <div>
-                                <h4 class="font-semibold text-purple-800">Driver Training Program</h4>
-                                <p class="text-sm text-gray-600">Optimize human factors in delivery execution</p>
+                                <h4 class="font-semibold text-purple-800 dark:text-purple-200">Driver Training Program</h4>
+                                <p class="text-sm text-gray-600 dark:text-gray-300">Optimize human factors in delivery execution</p>
                             </div>
                         </div>
-                        <div class="flex items-start p-3 bg-orange-50 rounded-lg">
+                        <div class="flex items-start p-3 bg-orange-50 dark:bg-orange-900 rounded-lg">
                             <div class="bg-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 mt-0.5 text-sm font-bold">4</div>
                             <div>
-                                <h4 class="font-semibold text-orange-800">Analytics-Driven Optimization</h4>
-                                <p class="text-sm text-gray-600">Continuous improvement through data insights</p>
+                                <h4 class="font-semibold text-orange-800 dark:text-orange-200">Analytics-Driven Optimization</h4>
+                                <p class="text-sm text-gray-600 dark:text-gray-300">Continuous improvement through data insights</p>
                             </div>
                         </div>
                     </div>
@@ -738,7 +927,7 @@
 
                 <!-- Future Enhancements -->
                 <div>
-                    <h3 class="text-xl font-bold mb-4 text-gray-800">Future Enhancement Opportunities</h3>
+                    <h3 class="text-xl font-bold mb-4 theme-text-primary">Future Enhancement Opportunities</h3>
                     <div class="space-y-4">
                         <div class="bg-gradient-to-r from-indigo-50 to-indigo-100 p-4 rounded-lg border-l-4 border-indigo-500">
                             <h4 class="font-semibold text-indigo-800 mb-2">
@@ -820,29 +1009,85 @@
         </div>
     </section>
 
+    <!-- Scroll to Top Button -->
+    <button id="scrollToTop" class="scroll-to-top bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg transition-all duration-300">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
     <!-- Footer -->
-    <footer class="bg-gray-800 text-white py-8">
+    <footer class="bg-gray-800 dark:bg-gray-900 text-white py-8 transition-colors duration-300">
         <div class="container mx-auto px-6 text-center">
             <p class="text-lg mb-2">Fleet Management Platform Business Dashboard</p>
-            <p class="text-gray-400 text-sm">
+            <p class="text-gray-400 dark:text-gray-300 text-sm">
                 This dashboard demonstrates the strategic business value and operational excellence achieved through the Fleet Management Platform, specifically designed to maximize the 50 Business marks allocation in the examination assessment.
             </p>
-            <div class="mt-4 text-gray-500 text-sm">
-                <p>© 2025 Fleet Management Platform | Technology Stack: Firebase, JavaScript ES6, OpenRouteService API</p>
+            <div class="mt-4 text-gray-500 dark:text-gray-400 text-sm">
+                <p>© 2025 Fleet Management Platform | Technology Stack: Firebase, JavaScript ES6, OpenRouteService API, Gemini AI</p>
                 <p class="mt-2">📊 Includes comprehensive CRM Strategy, STP Analysis, and Real-time KPI Implementation</p>
                 <p class="mt-1">📁 Additional Resources: CRM_Strategy_Analysis.md | STP_Strategy_Analysis.md | Enhanced_CPK_Calculation.js</p>
+                <p class="mt-2 text-blue-400">🎯 Features: Route Optimization, Real-time Tracking, Performance Analytics, Customer Management</p>
             </div>
         </div>
     </footer>
 
     <script>
+        // Theme Toggle Functionality
+        class ThemeManager {
+            constructor() {
+                this.themeToggle = document.getElementById('themeToggle');
+                this.themeToggleMobile = document.getElementById('themeToggle-mobile');
+                this.themeIcon = document.getElementById('themeIcon');
+                this.body = document.body;
+                
+                // Get saved theme or default to dark
+                this.currentTheme = localStorage.getItem('theme') || 'dark';
+                this.applyTheme(this.currentTheme);
+                
+                // Add event listeners
+                if (this.themeToggle) {
+                    this.themeToggle.addEventListener('click', () => this.toggleTheme());
+                }
+                if (this.themeToggleMobile) {
+                    this.themeToggleMobile.addEventListener('click', () => this.toggleTheme());
+                }
+            }
+
+            toggleTheme() {
+                this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
+                this.applyTheme(this.currentTheme);
+                localStorage.setItem('theme', this.currentTheme);
+            }
+
+            applyTheme(theme) {
+                this.body.setAttribute('data-theme', theme);
+                
+                // Update all theme toggle buttons and icons
+                document.querySelectorAll('[id^="theme-toggle"]').forEach(button => {
+                    const icon = button.querySelector('i');
+                    if (icon) {
+                        if (theme === 'dark') {
+                            icon.className = 'fas fa-sun';
+                        } else {
+                            icon.className = 'fas fa-moon';
+                        }
+                    }
+                });
+            }
+        }
+
+        // Initialize theme manager
+        const themeManager = new ThemeManager();
+
         // Add smooth scrolling for better UX
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
-                document.querySelector(this.getAttribute('href')).scrollIntoView({
-                    behavior: 'smooth'
-                });
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }
             });
         });
 
@@ -870,8 +1115,59 @@
         });
 
         // Initialize the first section as visible
-        document.querySelector('section').style.opacity = '1';
-        document.querySelector('section').style.transform = 'translateY(0)';
+        const firstSection = document.querySelector('section');
+        if (firstSection) {
+            firstSection.style.opacity = '1';
+            firstSection.style.transform = 'translateY(0)';
+        }
+
+        // Scroll to Top functionality
+        const scrollToTopBtn = document.getElementById('scrollToTop');
+        
+        window.addEventListener('scroll', function() {
+            if (window.pageYOffset > 300) {
+                scrollToTopBtn.classList.add('visible');
+            } else {
+                scrollToTopBtn.classList.remove('visible');
+            }
+        });
+
+        scrollToTopBtn.addEventListener('click', function() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+
+        // Add pulse animation to metrics on scroll
+        const metricsObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('pulse-animation');
+                    setTimeout(() => {
+                        entry.target.classList.remove('pulse-animation');
+                    }, 2000);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        document.querySelectorAll('.metric-circle').forEach(metric => {
+            metricsObserver.observe(metric);
+        });
+
+        // Add loading animation
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.classList.add('animate-fade-in');
+            
+            // Add staggered animations to cards
+            const cards = document.querySelectorAll('.card-hover');
+            cards.forEach((card, index) => {
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        });
     </script>
 
 </body>
