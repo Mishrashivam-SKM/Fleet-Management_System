@@ -19,4 +19,4 @@ export const ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6
 
 // --- 3. GEMINI AI CONFIGURATION (Geocoding & Travel Time Calculations) ---
 // This key is used for AI-powered geocoding and intelligent travel time estimation.
-export const GEMINI_API_KEY = 'AIzaSyA_vSZDP5556pkOsqBwFBUJAhT_Tr2f6JI';
+export const GEMINI_API_KEY = 'AIzaSyCBm1ZimgRH7zyBiUFibTitLrup2H-xHhw';

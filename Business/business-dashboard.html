@@ -3,292 +3,765 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fleet Management System - Business Dashboard</title>
+    <title>Fleet Command Center - Strategic Business Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-500: #3b82f6;
-            --primary-600: #2563eb;
-            --primary-700: #1d4ed8;
-            --dark-700: #374151;
-            --dark-800: #1f2937;
-            --dark-900: #111827;
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #8b5cf6;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --dark-light: #1e293b;
+            --dark-lighter: #334155;
+            --light: #f8fafc;
+            --light-dark: #e2e8f0;
+            --text-light: #64748b;
+        }
+
+        * {
+            font-family: 'Inter', sans-serif;
         }
 
         [data-theme="dark"] {
-            --bg-primary: #111827;
-            --bg-secondary: #1f2937;
-            --bg-tertiary: #374151;
-            --text-primary: #f9fafb;
-            --text-secondary: #d1d5db;
-            --text-muted: #9ca3af;
-            --border-color: #374151;
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --bg-quaternary: #475569;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --card-shadow: rgba(0, 0, 0, 0.3);
         }
 
         [data-theme="light"] {
             --bg-primary: #ffffff;
-            --bg-secondary: #f9fafb;
-            --bg-tertiary: #f3f4f6;
-            --text-primary: #111827;
-            --text-secondary: #374151;
-            --text-muted: #6b7280;
-            --border-color: #e5e7eb;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #f1f5f9;
+            --bg-quaternary: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --card-shadow: rgba(0, 0, 0, 0.1);
         }
 
         .theme-bg-primary { background-color: var(--bg-primary); }
         .theme-bg-secondary { background-color: var(--bg-secondary); }
         .theme-bg-tertiary { background-color: var(--bg-tertiary); }
+        .theme-bg-quaternary { background-color: var(--bg-quaternary); }
         .theme-text-primary { color: var(--text-primary); }
         .theme-text-secondary { color: var(--text-secondary); }
         .theme-text-muted { color: var(--text-muted); }
         .theme-border { border-color: var(--border-color); }
-        .theme-card { 
-            background-color: var(--bg-secondary); 
+
+        .glass-card { 
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        [data-theme="light"] .glass-card {
+            background: rgba(248, 250, 252, 0.8);
+            border: 1px solid rgba(226, 232, 240, 0.5);
+        }
+
+        .modern-card {
+            background: var(--bg-secondary);
             border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px var(--card-shadow), 0 2px 4px -1px var(--card-shadow);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .modern-card:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 20px 25px -5px var(--card-shadow), 0 10px 10px -5px var(--card-shadow);
         }
 
-        .card-hover {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        .hero-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #6366f1 100%);
         }
 
-        .card-hover:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-
-        .animate-fade-in {
-            animation: fadeIn 0.6s ease-in-out;
-        }
-
-        .animate-slide-up {
-            animation: slideUp 0.6s ease-in-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        @keyframes slideUp {
-            from { 
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to { 
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .metric-circle {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
+        .metric-hexagon {
+            width: 140px;
+            height: 140px;
+            position: relative;
+            transform: rotate(30deg);
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;
-            background: conic-gradient(from 0deg, #3b82f6, #8b5cf6, #3b82f6);
         }
 
-        .metric-circle::before {
-            content: '';
-            position: absolute;
-            width: 90px;
-            height: 90px;
-            border-radius: 50%;
-            background: var(--bg-secondary);
+        .metric-hexagon-content {
+            transform: rotate(-30deg);
+            text-align: center;
+            color: white;
         }
 
-        .metric-value {
-            position: relative;
-            z-index: 1;
-            font-weight: bold;
-            font-size: 1.5rem;
+        .floating-animation {
+            animation: float 6s ease-in-out infinite;
         }
 
-        .infographic-item {
+        .floating-animation:nth-child(2) { animation-delay: -2s; }
+        .floating-animation:nth-child(3) { animation-delay: -4s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(30deg); }
+            50% { transform: translateY(-10px) rotate(30deg); }
+        }
+
+        .slide-in-left {
+            animation: slideInLeft 0.8s ease-out;
+        }
+
+        .slide-in-right {
+            animation: slideInRight 0.8s ease-out;
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        @keyframes slideInLeft {
+            from { transform: translateX(-100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes fadeInUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .competitive-card {
             position: relative;
             overflow: hidden;
         }
 
-        .infographic-item::before {
+        .competitive-card::before {
             content: '';
             position: absolute;
             top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(45deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
-            z-index: -1;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
         }
 
-        .scroll-to-top {
+        .competitive-card:hover::before {
+            left: 100%;
+        }
+
+        .nav-sidebar {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: 50;
         }
 
-        .scroll-to-top.visible {
-            opacity: 1;
-            visibility: visible;
+        .nav-sidebar.open {
+            transform: translateX(0);
         }
 
-        .pulse-animation {
-            animation: pulse 2s infinite;
+        .content-wrapper {
+            margin-left: 0;
+            transition: margin-left 0.3s ease;
         }
 
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+        .gradient-border {
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            padding: 2px;
+            border-radius: 12px;
         }
 
-        .gradient-text {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        .gradient-border-content {
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            padding: 1.5rem;
         }
     </style>
 </head>
-<body class="theme-bg-primary theme-text-primary transition-colors duration-300" data-theme="dark">
+<body class="theme-bg-primary theme-text-primary transition-all duration-500" data-theme="dark">
     
-    <!-- Theme Toggle & Header -->
-    <header class="theme-bg-secondary theme-border border-b sticky top-0 z-50">
-        <div class="container mx-auto px-6 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <div class="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center">
-                        <i class="fas fa-truck text-white text-lg"></i>
-                    </div>
-                    <div>
-                        <h1 class="text-2xl font-bold theme-text-primary gradient-text">Fleet Management System</h1>
-                        <p class="text-sm theme-text-muted">Business Intelligence Dashboard</p>
-                    </div>
+    <!-- Navigation Sidebar -->
+    <nav id="sidebar" class="nav-sidebar">
+        <div class="p-6">
+            <div class="flex items-center space-x-3 mb-8">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center">
+                    <i class="fas fa-route text-white text-lg"></i>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <button id="themeToggle" class="theme-bg-tertiary hover:bg-gray-600 p-2 rounded-lg transition-colors">
-                        <i id="themeIcon" class="fas fa-moon theme-text-primary"></i>
-                    </button>
-                    <div class="text-right">
-                        <p class="text-sm theme-text-secondary">October 6, 2025</p>
-                        <p class="text-xs theme-text-muted">Real-time Analytics</p>
-                    </div>
+                <div>
+                    <h2 class="font-bold text-lg theme-text-primary">Fleet Command</h2>
+                    <p class="text-xs theme-text-muted">Strategic Intelligence</p>
                 </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- Hero Section with Infographics -->
-    <section class="gradient-bg text-white py-12">
-        <div class="container mx-auto px-6">
-            <div class="text-center mb-12 animate-fade-in">
-                <h2 class="text-4xl font-bold mb-4">Advanced Fleet Management Platform</h2>
-                <p class="text-xl opacity-90 max-w-3xl mx-auto">
-                    Revolutionizing logistics through AI-powered route optimization, real-time tracking, and intelligent analytics
-                </p>
             </div>
             
-            <!-- Key Metrics Infographic -->
-            <div class="grid md:grid-cols-4 gap-6 animate-slide-up">
-                <div class="text-center">
-                    <div class="metric-circle mx-auto mb-4">
-                        <div class="metric-value text-white">95%</div>
+            <ul class="space-y-2">
+                <li><a href="#overview" class="nav-link flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-tachometer-alt"></i><span>Overview</span></a></li>
+                <li><a href="#strategy" class="nav-link flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-chess"></i><span>Strategic Analysis</span></a></li>
+                <li><a href="#competitive" class="nav-link flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-sword"></i><span>Competitive Edge</span></a></li>
+                <li><a href="#metrics" class="nav-link flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-chart-line"></i><span>Performance KPIs</span></a></li>
+                <li><a href="#roi" class="nav-link flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-coins"></i><span>ROI Analysis</span></a></li>
+                <li><a href="#roadmap" class="nav-link flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <i class="fas fa-rocket"></i><span>Future Roadmap</span></a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="content-wrapper">
+        <!-- Modern Header -->
+        <header class="glass-card sticky top-0 z-40 backdrop-blur-lg border-b theme-border">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-6">
+                        <button id="sidebarToggle" class="p-2 rounded-lg theme-bg-tertiary hover:scale-105 transition-all">
+                            <i class="fas fa-bars theme-text-primary"></i>
+                        </button>
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+                                <i class="fas fa-route text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent">
+                                    Fleet Command Center
+                                </h1>
+                                <p class="text-sm theme-text-muted">Strategic Business Intelligence Platform</p>
+                            </div>
+                        </div>
                     </div>
-                    <h3 class="font-bold text-lg mb-2">On-Time Delivery</h3>
-                    <p class="text-sm opacity-80">Industry-leading delivery precision</p>
-                </div>
-                <div class="text-center">
-                    <div class="metric-circle mx-auto mb-4">
-                        <div class="metric-value text-white">₹15</div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <div class="hidden md:flex items-center space-x-4">
+                            <div class="px-3 py-1 rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs font-medium">
+                                <i class="fas fa-circle text-green-500 mr-1 animate-pulse"></i>
+                                Live System
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-medium theme-text-secondary">October 7, 2025</p>
+                                <p class="text-xs theme-text-muted">Real-time Intelligence</p>
+                            </div>
+                        </div>
+                        
+                        <button id="themeToggle" class="p-3 rounded-xl theme-bg-tertiary hover:scale-110 transition-all duration-300 shadow-lg">
+                            <i id="themeIcon" class="fas fa-moon theme-text-primary text-lg"></i>
+                        </button>
                     </div>
-                    <h3 class="font-bold text-lg mb-2">Cost Per KM</h3>
-                    <p class="text-sm opacity-80">Optimized operational efficiency</p>
-                </div>
-                <div class="text-center">
-                    <div class="metric-circle mx-auto mb-4">
-                        <div class="metric-value text-white">85%</div>
-                    </div>
-                    <h3 class="font-bold text-lg mb-2">Fleet Utilization</h3>
-                    <p class="text-sm opacity-80">Maximum resource optimization</p>
-                </div>
-                <div class="text-center">
-                    <div class="metric-circle mx-auto mb-4">
-                        <div class="metric-value text-white">25%</div>
-                    </div>
-                    <h3 class="font-bold text-lg mb-2">Cost Reduction</h3>
-                    <p class="text-sm opacity-80">Significant operational savings</p>
                 </div>
             </div>
-        </div>
-    </section>
+        </header>
 
-    <!-- Executive Summary -->
-    <section class="container mx-auto px-6 py-12">
-        <div class="theme-card rounded-xl shadow-lg p-8 card-hover">
-            <h2 class="text-3xl font-bold mb-6 theme-text-primary border-b-4 border-blue-500 pb-2">
-                <i class="fas fa-chart-line mr-3 text-blue-500"></i>Executive Summary
-            </h2>
-            <div class="grid md:grid-cols-2 gap-8">
-                <div>
-                    <p class="text-lg leading-relaxed theme-text-secondary mb-6">
-                        The Fleet Management Platform represents a comprehensive digital transformation solution designed to optimize last-mile delivery operations through intelligent route planning, real-time tracking, and performance analytics.
+        <!-- Hero Section with Modern Metrics -->
+        <section id="overview" class="relative overflow-hidden">
+            <div class="hero-gradient py-20">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="text-center mb-16 slide-in-left">
+                        <h1 class="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
+                            Next-Gen Fleet
+                            <span class="block bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+                                Intelligence Platform
+                            </span>
+                        </h1>
+                        <p class="text-xl text-white/90 max-w-4xl mx-auto leading-relaxed">
+                            Transforming logistics through AI-powered optimization, predictive analytics, 
+                            and intelligent automation for unprecedented operational excellence
+                        </p>
+                    </div>
+                    
+                    <!-- Modern Hexagonal Metrics -->
+                    <div class="grid md:grid-cols-4 gap-8 justify-items-center fade-in-up">
+                        <div class="text-center">
+                            <div class="metric-hexagon mx-auto mb-6 floating-animation">
+                                <div class="metric-hexagon-content">
+                                    <div class="text-2xl font-bold">95%</div>
+                                    <div class="text-sm opacity-90">OTD</div>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-white text-lg mb-2">On-Time Delivery</h3>
+                            <p class="text-white/80 text-sm">Industry-leading precision</p>
+                        </div>
+                        
+                        <div class="text-center">
+                            <div class="metric-hexagon mx-auto mb-6 floating-animation">
+                                <div class="metric-hexagon-content">
+                                    <div class="text-2xl font-bold">₹12</div>
+                                    <div class="text-sm opacity-90">CPK</div>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-white text-lg mb-2">Cost Per KM</h3>
+                            <p class="text-white/80 text-sm">Optimized efficiency</p>
+                        </div>
+                        
+                        <div class="text-center">
+                            <div class="metric-hexagon mx-auto mb-6 floating-animation">
+                                <div class="metric-hexagon-content">
+                                    <div class="text-2xl font-bold">85%</div>
+                                    <div class="text-sm opacity-90">VUR</div>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-white text-lg mb-2">Fleet Utilization</h3>
+                            <p class="text-white/80 text-sm">Resource optimization</p>
+                        </div>
+                        
+                        <div class="text-center">
+                            <div class="metric-hexagon mx-auto mb-6 floating-animation">
+                                <div class="metric-hexagon-content">
+                                    <div class="text-2xl font-bold">30%</div>
+                                    <div class="text-sm opacity-90">ROI</div>
+                                </div>
+                            </div>
+                            <h3 class="font-bold text-white text-lg mb-2">Cost Reduction</h3>
+                            <p class="text-white/80 text-sm">Operational savings</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Performance Intelligence -->
+        <section id="metrics" class="py-16 theme-bg-primary">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-bold theme-text-primary mb-4">
+                        <span class="bg-gradient-to-r from-green-500 to-cyan-600 bg-clip-text text-transparent">
+                            Performance Intelligence Matrix
+                        </span>
+                    </h2>
+                    <div class="w-24 h-1 bg-gradient-to-r from-green-500 to-cyan-600 mx-auto rounded-full mb-6"></div>
+                    <p class="text-xl theme-text-secondary max-w-3xl mx-auto">
+                        Real-time KPI monitoring and predictive analytics for operational excellence
                     </p>
-                    <div class="space-y-3">
-                        <div class="flex items-center">
-                            <i class="fas fa-check-circle text-green-500 mr-3"></i>
-                            <span class="font-semibold theme-text-primary">Customer-centric service design</span>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-check-circle text-green-500 mr-3"></i>
-                            <span class="font-semibold theme-text-primary">Data-driven performance management</span>
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-check-circle text-green-500 mr-3"></i>
-                            <span class="font-semibold theme-text-primary">Scalable cloud-native architecture</span>
-                        </div>
-                    </div>
                 </div>
-                <div class="space-y-4">
-                    <div class="bg-gradient-to-r from-green-400 to-green-600 text-white p-4 rounded-lg">
-                        <div class="flex justify-between items-center">
-                            <span class="font-semibold">On-Time Delivery (OTD)</span>
-                            <span class="text-2xl font-bold">95%+</span>
+                
+                <div class="modern-card rounded-2xl p-8 lg:p-12">
+                    <!-- Performance Grid -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                        <!-- Operational Metrics -->
+                        <div class="space-y-6">
+                            <h3 class="text-2xl font-bold theme-text-primary mb-6">
+                                <i class="fas fa-tachometer-alt mr-3 text-green-500"></i>
+                                Operational Excellence
+                            </h3>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <!-- Fleet Utilization -->
+                                <div class="floating-metric bg-gradient-to-br from-blue-500/20 to-cyan-600/20 border border-blue-500/30 rounded-xl p-6 hover:shadow-2xl transition-all duration-500">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div class="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-truck text-blue-500 text-xl"></i>
+                                        </div>
+                                        <span class="text-xs font-medium text-green-500 bg-green-50 px-2 py-1 rounded-full">+5.3%</span>
+                                    </div>
+                                    <div class="text-3xl font-bold theme-text-primary mb-1">92.5%</div>
+                                    <div class="text-sm theme-text-secondary">Fleet Utilization</div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2 mt-3">
+                                        <div class="bg-gradient-to-r from-blue-500 to-cyan-600 h-2 rounded-full" style="width: 92.5%"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Route Efficiency -->
+                                <div class="floating-metric bg-gradient-to-br from-purple-500/20 to-indigo-600/20 border border-purple-500/30 rounded-xl p-6 hover:shadow-2xl transition-all duration-500">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-route text-purple-500 text-xl"></i>
+                                        </div>
+                                        <span class="text-xs font-medium text-green-500 bg-green-50 px-2 py-1 rounded-full">+12%</span>
+                                    </div>
+                                    <div class="text-3xl font-bold theme-text-primary mb-1">34%</div>
+                                    <div class="text-sm theme-text-secondary">Route Optimization</div>
+                                    <div class="text-xs theme-text-secondary mt-2">2.1hrs saved daily</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Financial Metrics -->
+                        <div class="space-y-6">
+                            <h3 class="text-2xl font-bold theme-text-primary mb-6">
+                                <i class="fas fa-chart-line mr-3 text-green-500"></i>
+                                Financial Performance
+                            </h3>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <!-- Cost Savings -->
+                                <div class="floating-metric bg-gradient-to-br from-green-500/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-6 hover:shadow-2xl transition-all duration-500">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div class="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-piggy-bank text-green-500 text-xl"></i>
+                                        </div>
+                                        <span class="text-xs font-medium text-green-500 bg-green-50 px-2 py-1 rounded-full">18%</span>
+                                    </div>
+                                    <div class="text-3xl font-bold theme-text-primary mb-1">₹2.4M</div>
+                                    <div class="text-sm theme-text-secondary">Annual Savings</div>
+                                    <div class="text-xs theme-text-secondary mt-2">Cost reduction achieved</div>
+                                </div>
+
+                                <!-- Customer Satisfaction -->
+                                <div class="floating-metric bg-gradient-to-br from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-xl p-6 hover:shadow-2xl transition-all duration-500">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div class="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-star text-orange-500 text-xl"></i>
+                                        </div>
+                                        <span class="text-xs font-medium text-green-500 bg-green-50 px-2 py-1 rounded-full">98%</span>
+                                    </div>
+                                    <div class="text-3xl font-bold theme-text-primary mb-1">4.8/5</div>
+                                    <div class="text-sm theme-text-secondary">Customer Rating</div>
+                                    <div class="text-xs theme-text-secondary mt-2">Satisfaction rate</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="bg-gradient-to-r from-blue-400 to-blue-600 text-white p-4 rounded-lg">
-                        <div class="flex justify-between items-center">
-                            <span class="font-semibold">Cost Reduction (CPK)</span>
-                            <span class="text-2xl font-bold">30%</span>
-                        </div>
-                    </div>
-                    <div class="bg-gradient-to-r from-purple-400 to-purple-600 text-white p-4 rounded-lg">
-                        <div class="flex justify-between items-center">
-                            <span class="font-semibold">Vehicle Utilization (VUR)</span>
-                            <span class="text-2xl font-bold">85%+</span>
+
+                    <!-- Advanced Analytics -->
+                    <div class="mt-12">
+                        <h3 class="text-2xl font-bold theme-text-primary mb-8 text-center">
+                            <i class="fas fa-brain mr-3 text-purple-500"></i>
+                            Predictive Intelligence Dashboard
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- Fuel Efficiency -->
+                            <div class="glass-card p-6 rounded-xl">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-gas-pump text-yellow-500"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold theme-text-primary">Fuel Efficiency</h4>
+                                            <p class="text-sm theme-text-muted">Optimized consumption</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-2xl font-bold text-yellow-500">15.2</div>
+                                </div>
+                                <div class="text-sm theme-text-secondary">km/L average</div>
+                                <div class="mt-3 text-xs text-green-500 flex items-center">
+                                    <i class="fas fa-arrow-up mr-1"></i>
+                                    +8% improvement
+                                </div>
+                            </div>
+
+                            <!-- Maintenance Prediction -->
+                            <div class="glass-card p-6 rounded-xl">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-wrench text-red-500"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold theme-text-primary">Maintenance</h4>
+                                            <p class="text-sm theme-text-muted">Predictive alerts</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-2xl font-bold text-red-500">3</div>
+                                </div>
+                                <div class="text-sm theme-text-secondary">vehicles due</div>
+                                <div class="mt-3 text-xs text-orange-500 flex items-center">
+                                    <i class="fas fa-clock mr-1"></i>
+                                    Next 7 days
+                                </div>
+                            </div>
+
+                            <!-- Driver Performance -->
+                            <div class="glass-card p-6 rounded-xl">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-id-card text-indigo-500"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold theme-text-primary">Driver Score</h4>
+                                            <p class="text-sm theme-text-muted">Safety & efficiency</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-2xl font-bold text-indigo-500">8.7</div>
+                                </div>
+                                <div class="text-sm theme-text-secondary">out of 10</div>
+                                <div class="mt-3 text-xs text-green-500 flex items-center">
+                                    <i class="fas fa-trophy mr-1"></i>
+                                    Top performers
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- CRM & STP Strategy -->
-    <section class="container mx-auto px-6 py-12">
-        <div class="theme-card rounded-xl shadow-lg p-8 card-hover">
-            <h2 class="text-3xl font-bold mb-6 theme-text-primary border-b-4 border-indigo-500 pb-2">
-                <i class="fas fa-users mr-3 text-indigo-500"></i>CRM & STP Strategy Framework
-            </h2>
+        <!-- Executive Summary -->
+        <section class="py-16 theme-bg-secondary">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="modern-card rounded-2xl p-8 lg:p-12">
+                    <div class="text-center mb-12">
+                        <h2 class="text-4xl font-bold theme-text-primary mb-4">
+                            <span class="bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent">
+                                Executive Intelligence
+                            </span>
+                        </h2>
+                        <div class="w-24 h-1 bg-gradient-to-r from-indigo-500 to-purple-600 mx-auto rounded-full"></div>
+                    </div>
+                    
+                    <div class="grid lg:grid-cols-2 gap-12 items-center">
+                        <div class="slide-in-left">
+                            <p class="text-xl leading-relaxed theme-text-secondary mb-8">
+                                Our Fleet Intelligence Platform represents the next evolution in logistics optimization, 
+                                combining <strong>AI-powered algorithms</strong> with real-time operational intelligence 
+                                to deliver unprecedented efficiency gains across the entire supply chain ecosystem.
+                            </p>
+                            
+                            <div class="space-y-4">
+                                <div class="flex items-center space-x-4 p-4 rounded-xl theme-bg-tertiary">
+                                    <div class="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center">
+                                        <i class="fas fa-brain text-white"></i>
+                                    </div>
+                                    <span class="font-semibold theme-text-primary">AI-Driven Decision Intelligence</span>
+                                </div>
+                                
+                                <div class="flex items-center space-x-4 p-4 rounded-xl theme-bg-tertiary">
+                                    <div class="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 flex items-center justify-center">
+                                        <i class="fas fa-chart-network text-white"></i>
+                                    </div>
+                                    <span class="font-semibold theme-text-primary">Predictive Performance Analytics</span>
+                                </div>
+                                
+                                <div class="flex items-center space-x-4 p-4 rounded-xl theme-bg-tertiary">
+                                    <div class="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center">
+                                        <i class="fas fa-cloud text-white"></i>
+                                    </div>
+                                    <span class="font-semibold theme-text-primary">Cloud-Native Scalability</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="slide-in-right">
+                            <div class="grid gap-4">
+                                <div class="gradient-border">
+                                    <div class="gradient-border-content">
+                                        <div class="flex justify-between items-center">
+                                            <div>
+                                                <h3 class="font-bold text-lg theme-text-primary">On-Time Delivery Excellence</h3>
+                                                <p class="theme-text-muted text-sm">Industry leadership benchmark</p>
+                                            </div>
+                                            <div class="text-right">
+                                                <div class="text-3xl font-bold bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent">95%+</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="gradient-border">
+                                    <div class="gradient-border-content">
+                                        <div class="flex justify-between items-center">
+                                            <div>
+                                                <h3 class="font-bold text-lg theme-text-primary">Cost Optimization Impact</h3>
+                                                <p class="theme-text-muted text-sm">Operational efficiency gains</p>
+                                            </div>
+                                            <div class="text-right">
+                                                <div class="text-3xl font-bold bg-gradient-to-r from-blue-500 to-cyan-600 bg-clip-text text-transparent">30%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="gradient-border">
+                                    <div class="gradient-border-content">
+                                        <div class="flex justify-between items-center">
+                                            <div>
+                                                <h3 class="font-bold text-lg theme-text-primary">Resource Utilization</h3>
+                                                <p class="theme-text-muted text-sm">Maximum fleet efficiency</p>
+                                            </div>
+                                            <div class="text-right">
+                                                <div class="text-3xl font-bold bg-gradient-to-r from-purple-500 to-pink-600 bg-clip-text text-transparent">85%+</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Competitive Advantage Section -->
+        <section id="competitive" class="py-16 theme-bg-primary">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-bold theme-text-primary mb-4">
+                        <span class="bg-gradient-to-r from-red-500 to-orange-600 bg-clip-text text-transparent">
+                            Competitive Battlefield Analysis
+                        </span>
+                    </h2>
+                    <p class="text-xl theme-text-secondary max-w-3xl mx-auto">
+                        Strategic positioning against enterprise giants and market alternatives
+                    </p>
+                </div>
+                
+                <!-- Build vs Buy Challenge -->
+                <div class="mb-16">
+                    <div class="modern-card rounded-2xl p-8 competitive-card">
+                        <h3 class="text-2xl font-bold theme-text-primary mb-6 flex items-center">
+                            <i class="fas fa-hammer text-orange-500 mr-3"></i>
+                            Build vs Buy Economic Reality
+                        </h3>
+                        
+                        <div class="grid lg:grid-cols-2 gap-8">
+                            <div class="space-y-6">
+                                <div class="p-6 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+                                    <h4 class="font-bold text-red-800 dark:text-red-300 mb-4">In-House Development Costs</h4>
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-700 dark:text-gray-300">Development Team (2-3 devs)</span>
+                                            <span class="font-bold text-red-600 dark:text-red-400">₹25-40L annually</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-700 dark:text-gray-300">Infrastructure & Tools</span>
+                                            <span class="font-bold text-red-600 dark:text-red-400">₹3-5L annually</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-700 dark:text-gray-300">Maintenance & Updates</span>
+                                            <span class="font-bold text-red-600 dark:text-red-400">₹8-12L annually</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-700 dark:text-gray-300">Time to Market</span>
+                                            <span class="font-bold text-red-600 dark:text-red-400">12-18 months</span>
+                                        </div>
+                                        <div class="border-t pt-3 flex justify-between text-lg font-bold">
+                                            <span class="text-red-800 dark:text-red-300">Total Year 1</span>
+                                            <span class="text-red-600 dark:text-red-400">₹50-70L</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-6">
+                                <div class="p-6 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                                    <h4 class="font-bold text-green-800 dark:text-green-300 mb-4">Our Platform Solution</h4>
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-700 dark:text-gray-300">Annual Subscription</span>
+                                            <span class="font-bold text-green-600 dark:text-green-400">₹6-12L</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-700 dark:text-gray-300">Implementation Time</span>
+                                            <span class="font-bold text-green-600 dark:text-green-400">7 days</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-700 dark:text-gray-300">Maintenance Included</span>
+                                            <span class="font-bold text-green-600 dark:text-green-400">₹0</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-700 dark:text-gray-300">Feature Updates</span>
+                                            <span class="font-bold text-green-600 dark:text-green-400">Automatic</span>
+                                        </div>
+                                        <div class="border-t pt-3 flex justify-between text-lg font-bold">
+                                            <span class="text-green-800 dark:text-green-300">Total Year 1</span>
+                                            <span class="text-green-600 dark:text-green-400">₹6-12L</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="p-4 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl text-white text-center">
+                                    <div class="text-2xl font-bold">70-80% Cost Savings</div>
+                                    <div class="text-sm opacity-90">+ 18x Faster Implementation</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Enterprise vs Agility -->
+                <div class="mb-16">
+                    <div class="modern-card rounded-2xl p-8 competitive-card">
+                        <h3 class="text-2xl font-bold theme-text-primary mb-6 flex items-center">
+                            <i class="fas fa-building text-blue-500 mr-3"></i>
+                            Enterprise Giants vs Market Agility
+                        </h3>
+                        
+                        <div class="grid lg:grid-cols-3 gap-6">
+                            <div class="p-6 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                                <h4 class="font-bold text-gray-800 dark:text-gray-200 mb-4">Enterprise Solutions</h4>
+                                <div class="space-y-3 text-sm">
+                                    <div><strong>Tata/Mahindra:</strong> ₹2-5 crore budgets</div>
+                                    <div><strong>Target:</strong> 500+ vehicle fleets</div>
+                                    <div><strong>Implementation:</strong> 12-18 months</div>
+                                    <div><strong>Focus:</strong> Fortune 500 companies</div>
+                                </div>
+                            </div>
+                            
+                            <div class="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                                <h4 class="font-bold text-blue-800 dark:text-blue-300 mb-4">Market Gap (Our Opportunity)</h4>
+                                <div class="space-y-3 text-sm">
+                                    <div><strong>Target:</strong> 5-100 vehicle SMBs</div>
+                                    <div><strong>Market Size:</strong> 15,000+ companies</div>
+                                    <div><strong>Current Solutions:</strong> Manual/Excel</div>
+                                    <div><strong>Revenue Potential:</strong> ₹2,100+ crores</div>
+                                </div>
+                            </div>
+                            
+                            <div class="p-6 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+                                <h4 class="font-bold text-purple-800 dark:text-purple-300 mb-4">Our Strategic Advantage</h4>
+                                <div class="space-y-3 text-sm">
+                                    <div><strong>Implementation:</strong> 7 days vs 18 months</div>
+                                    <div><strong>Cost:</strong> 90% lower than enterprise</div>
+                                    <div><strong>Focus:</strong> 100% logistics optimization</div>
+                                    <div><strong>Agility:</strong> Monthly feature releases</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-8 p-6 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl text-white">
+                            <h4 class="font-bold mb-3">Strategic Positioning Statement</h4>
+                            <p class="text-lg italic">
+                                "We're not competing with Tata/Mahindra - we're serving the customers they can't profitably serve. 
+                                Different segments, different value propositions, complementary market approach."
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Strategic Framework -->
+        <section id="strategy" class="py-16 theme-bg-secondary">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-bold theme-text-primary mb-4">
+                        <span class="bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">
+                            Strategic Market Framework
+                        </span>
+                    </h2>
+                    <div class="w-24 h-1 bg-gradient-to-r from-blue-500 to-indigo-600 mx-auto rounded-full mb-6"></div>
+                    <p class="text-xl theme-text-secondary max-w-3xl mx-auto">
+                        Comprehensive STP analysis and customer relationship intelligence driving market penetration
+                    </p>
+                </div>
+                
+                <div class="modern-card rounded-2xl p-8 lg:p-12">
             
             <div class="grid lg:grid-cols-2 gap-8 mb-8">
                 <!-- Customer Segmentation -->
@@ -639,12 +1112,22 @@
         </div>
     </section>
 
-    <!-- Performance Metrics -->
-    <section class="container mx-auto px-6 py-12">
-        <div class="bg-white rounded-xl shadow-lg p-8 card-hover">
-            <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b-4 border-red-500 pb-2">
-                <i class="fas fa-analytics mr-3"></i>Performance Metrics & Business Intelligence
-            </h2>
+        <!-- Performance Intelligence -->
+        <section id="metrics" class="py-16 theme-bg-primary">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-bold theme-text-primary mb-4">
+                        <span class="bg-gradient-to-r from-green-500 to-cyan-600 bg-clip-text text-transparent">
+                            Performance Intelligence Matrix
+                        </span>
+                    </h2>
+                    <div class="w-24 h-1 bg-gradient-to-r from-green-500 to-cyan-600 mx-auto rounded-full mb-6"></div>
+                    <p class="text-xl theme-text-secondary max-w-3xl mx-auto">
+                        Real-time KPI monitoring and predictive analytics for operational excellence
+                    </p>
+                </div>
+                
+                <div class="modern-card rounded-2xl p-8 lg:p-12">
             
             <!-- KPI Cards -->
             <div class="grid lg:grid-cols-3 gap-6 mb-8">
@@ -798,166 +1281,334 @@
         </div>
     </section>
 
-    <!-- ROI Analysis -->
-    <section class="container mx-auto px-6 py-12">
-        <div class="theme-card rounded-xl shadow-lg p-8 card-hover">
-            <h2 class="text-3xl font-bold mb-6 theme-text-primary border-b-4 border-green-500 pb-2">
-                <i class="fas fa-chart-pie mr-3 text-green-500"></i>Return on Investment (ROI) Analysis
-            </h2>
-            
-            <div class="grid lg:grid-cols-2 gap-8 mb-8">
-                <!-- Cost Savings -->
-                <div>
-                    <h3 class="text-xl font-bold mb-4 theme-text-primary">Operational Cost Savings</h3>
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900 rounded-lg">
-                            <span class="font-medium theme-text-primary">Route Optimization</span>
-                            <span class="text-green-600 dark:text-green-400 font-bold">25-30% fuel reduction</span>
-                        </div>
-                        <div class="flex justify-between items-center p-3 bg-blue-50 dark:bg-blue-900 rounded-lg">
-                            <span class="font-medium theme-text-primary">Driver Productivity</span>
-                            <span class="text-blue-600 dark:text-blue-400 font-bold">20% improvement</span>
-                        </div>
-                        <div class="flex justify-between items-center p-3 bg-purple-50 dark:bg-purple-900 rounded-lg">
-                            <span class="font-medium theme-text-primary">Vehicle Efficiency</span>
-                            <span class="text-purple-600 dark:text-purple-400 font-bold">15% fleet reduction</span>
-                        </div>
-                        <div class="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-900 rounded-lg">
-                            <span class="font-medium theme-text-primary">Administrative Overhead</span>
-                            <span class="text-orange-600 dark:text-orange-400 font-bold">40% time reduction</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Revenue Enhancement -->
-                <div>
-                    <h3 class="text-xl font-bold mb-4 theme-text-primary">Revenue Enhancement</h3>
-                    <div class="space-y-3">
-                        <div class="flex justify-between items-center p-3 bg-indigo-50 dark:bg-indigo-900 rounded-lg">
-                            <span class="font-medium theme-text-primary">Premium Service Tiers</span>
-                            <span class="text-indigo-600 dark:text-indigo-400 font-bold">15-25% price premium</span>
-                        </div>
-                        <div class="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900 rounded-lg">
-                            <span class="font-medium theme-text-primary">Customer Retention</span>
-                            <span class="text-green-600 dark:text-green-400 font-bold">90% retention rate</span>
-                        </div>
-                        <div class="flex justify-between items-center p-3 bg-red-50 dark:bg-red-900 rounded-lg">
-                            <span class="font-medium theme-text-primary">Market Expansion</span>
-                            <span class="text-red-600 dark:text-red-400 font-bold">35% faster growth</span>
-                        </div>
-                        <div class="flex justify-between items-center p-3 bg-teal-50 dark:bg-teal-900 rounded-lg">
-                            <span class="font-medium theme-text-primary">Service Differentiation</span>
-                            <span class="text-teal-600 dark:text-teal-400 font-bold">20-30% advantage</span>
-                        </div>
-                    </div>
-                </div>
+    <!-- ROI Intelligence Hub -->
+    <section id="roi" class="py-16 theme-bg-secondary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold theme-text-primary mb-4">
+                    <span class="bg-gradient-to-r from-emerald-500 to-green-600 bg-clip-text text-transparent">
+                        ROI Intelligence Hub
+                    </span>
+                </h2>
+                <div class="w-24 h-1 bg-gradient-to-r from-emerald-500 to-green-600 mx-auto rounded-full mb-6"></div>
+                <p class="text-xl theme-text-secondary max-w-3xl mx-auto">
+                    Comprehensive financial impact analysis and investment justification framework
+                </p>
             </div>
+            
+            <div class="modern-card rounded-2xl p-8 lg:p-12">
+                <!-- ROI Summary Banner -->
+                <div class="bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl p-8 text-white mb-12 text-center">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div class="border-r border-white/30 last:border-r-0">
+                            <div class="text-4xl font-bold mb-2">312%</div>
+                            <div class="text-emerald-100">3-Year ROI</div>
+                        </div>
+                        <div class="border-r border-white/30 last:border-r-0">
+                            <div class="text-4xl font-bold mb-2">8.2</div>
+                            <div class="text-emerald-100">Months Payback</div>
+                        </div>
+                        <div>
+                            <div class="text-4xl font-bold mb-2">₹4.8M</div>
+                            <div class="text-emerald-100">Annual Savings</div>
+                        </div>
+                    </div>
+                </div>
+            
+                <!-- ROI Breakdown Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-12">
+                    <!-- Cost Optimization -->
+                    <div class="space-y-6">
+                        <h3 class="text-2xl font-bold theme-text-primary mb-6">
+                            <i class="fas fa-cut mr-3 text-red-500"></i>
+                            Cost Optimization Impact
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div class="floating-metric bg-gradient-to-br from-green-500/10 to-emerald-600/10 border border-green-500/20 rounded-xl p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-route text-green-500"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold theme-text-primary">Route Optimization</h4>
+                                            <p class="text-sm theme-text-muted">Fuel & time savings</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-2xl font-bold text-green-600">30%</div>
+                                        <div class="text-xs text-green-500">₹180K/month</div>
+                                    </div>
+                                </div>
+                            </div>
 
-            <!-- Implementation Timeline -->
-            <div>
-                <h3 class="text-xl font-bold mb-4 theme-text-primary">Implementation ROI Timeline</h3>
-                <div class="grid md:grid-cols-3 gap-4">
-                    <div class="bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900 dark:to-red-800 p-6 rounded-lg text-center">
-                        <h4 class="font-bold text-red-800 dark:text-red-200 mb-2">Phase 1 (Months 1-3)</h4>
-                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">Foundation & Core Operations</p>
-                        <div class="text-2xl font-bold text-red-600 dark:text-red-400">15-20%</div>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Operational efficiency improvement</p>
+                            <div class="floating-metric bg-gradient-to-br from-blue-500/10 to-cyan-600/10 border border-blue-500/20 rounded-xl p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-users text-blue-500"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold theme-text-primary">Driver Productivity</h4>
+                                            <p class="text-sm theme-text-muted">Efficiency gains</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-2xl font-bold text-blue-600">22%</div>
+                                        <div class="text-xs text-blue-500">₹95K/month</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="floating-metric bg-gradient-to-br from-purple-500/10 to-indigo-600/10 border border-purple-500/20 rounded-xl p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-cogs text-purple-500"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold theme-text-primary">Fleet Optimization</h4>
+                                            <p class="text-sm theme-text-muted">Asset utilization</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-2xl font-bold text-purple-600">18%</div>
+                                        <div class="text-xs text-purple-500">₹125K/month</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900 dark:to-yellow-800 p-6 rounded-lg text-center">
-                        <h4 class="font-bold text-yellow-800 dark:text-yellow-200 mb-2">Phase 2 (Months 4-6)</h4>
-                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">Advanced Analytics</p>
-                        <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">25-35%</div>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Overall operational improvement</p>
+
+                    <!-- Revenue Enhancement -->
+                    <div class="space-y-6">
+                        <h3 class="text-2xl font-bold theme-text-primary mb-6">
+                            <i class="fas fa-trending-up mr-3 text-indigo-500"></i>
+                            Revenue Enhancement
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div class="floating-metric bg-gradient-to-br from-indigo-500/10 to-blue-600/10 border border-indigo-500/20 rounded-xl p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-crown text-indigo-500"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold theme-text-primary">Premium Services</h4>
+                                            <p class="text-sm theme-text-muted">Value-added offerings</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-2xl font-bold text-indigo-600">25%</div>
+                                        <div class="text-xs text-indigo-500">Price premium</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="floating-metric bg-gradient-to-br from-emerald-500/10 to-green-600/10 border border-emerald-500/20 rounded-xl p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-12 h-12 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-heart text-emerald-500"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold theme-text-primary">Customer Retention</h4>
+                                            <p class="text-sm theme-text-muted">Loyalty programs</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-2xl font-bold text-emerald-600">92%</div>
+                                        <div class="text-xs text-emerald-500">Retention rate</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="floating-metric bg-gradient-to-br from-orange-500/10 to-red-600/10 border border-orange-500/20 rounded-xl p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-globe text-orange-500"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold theme-text-primary">Market Expansion</h4>
+                                            <p class="text-sm theme-text-muted">Geographic reach</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-2xl font-bold text-orange-600">35%</div>
+                                        <div class="text-xs text-orange-500">Growth rate</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900 dark:to-green-800 p-6 rounded-lg text-center">
-                        <h4 class="font-bold text-green-800 dark:text-green-200 mb-2">Phase 3 (Months 7-12)</h4>
-                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">Scale & Innovation</p>
-                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">40-60%</div>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Comprehensive improvement</p>
+                </div>
+
+                <!-- ROI Implementation Timeline -->
+                <div class="mt-12">
+                    <h3 class="text-2xl font-bold theme-text-primary mb-8 text-center">
+                        <i class="fas fa-rocket mr-3 text-purple-500"></i>
+                        Implementation ROI Timeline
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="glass-card p-6 rounded-xl border-l-4 border-red-500">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-rocket text-red-500"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold theme-text-primary">Phase 1</h4>
+                                    <p class="text-sm theme-text-muted">Months 1-3</p>
+                                </div>
+                            </div>
+                            <p class="text-sm theme-text-secondary mb-4">Foundation & Core Operations</p>
+                            <div class="text-3xl font-bold text-red-500 mb-2">18%</div>
+                            <div class="text-xs theme-text-muted">Initial ROI</div>
+                        </div>
+
+                        <div class="glass-card p-6 rounded-xl border-l-4 border-yellow-500">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-chart-line text-yellow-500"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold theme-text-primary">Phase 2</h4>
+                                    <p class="text-sm theme-text-muted">Months 4-8</p>
+                                </div>
+                            </div>
+                            <p class="text-sm theme-text-secondary mb-4">Optimization & Scaling</p>
+                            <div class="text-3xl font-bold text-yellow-500 mb-2">145%</div>
+                            <div class="text-xs theme-text-muted">Cumulative ROI</div>
+                        </div>
+
+                        <div class="glass-card p-6 rounded-xl border-l-4 border-green-500">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-trophy text-green-500"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold theme-text-primary">Phase 3</h4>
+                                    <p class="text-sm theme-text-muted">Months 9-12</p>
+                                </div>
+                            </div>
+                            <p class="text-sm theme-text-secondary mb-4">Full Maturity & Excellence</p>
+                            <div class="text-3xl font-bold text-green-500 mb-2">312%</div>
+                            <div class="text-xs theme-text-muted">Full ROI</div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-
-
-    <!-- Strategic Recommendations -->
-    <section class="container mx-auto px-6 py-12">
-        <div class="theme-card rounded-xl shadow-lg p-8 card-hover">
-            <h2 class="text-3xl font-bold mb-6 theme-text-primary border-b-4 border-purple-500 pb-2">
-                <i class="fas fa-lightbulb mr-3 text-purple-500"></i>Strategic Recommendations & Future Roadmap
-            </h2>
+    <!-- Strategic Roadmap -->
+    <section id="roadmap" class="py-16 theme-bg-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold theme-text-primary mb-4">
+                    <span class="bg-gradient-to-r from-purple-500 to-pink-600 bg-clip-text text-transparent">
+                        Strategic Evolution Roadmap
+                    </span>
+                </h2>
+                <div class="w-24 h-1 bg-gradient-to-r from-purple-500 to-pink-600 mx-auto rounded-full mb-6"></div>
+                <p class="text-xl theme-text-secondary max-w-3xl mx-auto">
+                    Future-ready innovation pipeline and competitive advantage development
+                </p>
+            </div>
             
-            <div class="grid lg:grid-cols-2 gap-8">
-                <!-- Immediate Priorities -->
-                <div>
-                    <h3 class="text-xl font-bold mb-4 theme-text-primary">Immediate Implementation Priorities</h3>
-                    <div class="space-y-3">
-                        <div class="flex items-start p-3 bg-blue-50 dark:bg-blue-900 rounded-lg">
-                            <div class="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 mt-0.5 text-sm font-bold">1</div>
-                            <div>
-                                <h4 class="font-semibold text-blue-800 dark:text-blue-200">Performance Excellence Focus</h4>
-                                <p class="text-sm text-gray-600 dark:text-gray-300">Establish OTD as primary success metric</p>
+            <div class="modern-card rounded-2xl p-8 lg:p-12">
+                <!-- Roadmap Timeline -->
+                <div class="space-y-12">
+                    <!-- 2024 Q4 -->
+                    <div class="relative">
+                        <div class="flex items-center mb-6">
+                            <div class="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                                Q4
+                            </div>
+                            <div class="ml-6">
+                                <h3 class="text-2xl font-bold theme-text-primary">Foundation Excellence</h3>
+
                             </div>
                         </div>
-                        <div class="flex items-start p-3 bg-green-50 dark:bg-green-900 rounded-lg">
-                            <div class="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 mt-0.5 text-sm font-bold">2</div>
-                            <div>
-                                <h4 class="font-semibold text-green-800 dark:text-green-200">Customer Communication Enhancement</h4>
-                                <p class="text-sm text-gray-600 dark:text-gray-300">Implement proactive delivery updates</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 ml-22">
+                            <div class="floating-metric bg-gradient-to-br from-blue-500/10 to-cyan-600/10 border border-blue-500/20 rounded-xl p-6">
+                                <i class="fas fa-brain text-blue-500 text-2xl mb-3"></i>
+                                <h4 class="font-bold theme-text-primary mb-2">AI Route Optimization</h4>
+                                <p class="text-sm theme-text-secondary">Advanced ML algorithms for real-time route planning</p>
                             </div>
-                        </div>
-                        <div class="flex items-start p-3 bg-purple-50 dark:bg-purple-900 rounded-lg">
-                            <div class="bg-purple-500 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 mt-0.5 text-sm font-bold">3</div>
-                            <div>
-                                <h4 class="font-semibold text-purple-800 dark:text-purple-200">Driver Training Program</h4>
-                                <p class="text-sm text-gray-600 dark:text-gray-300">Optimize human factors in delivery execution</p>
+                            <div class="floating-metric bg-gradient-to-br from-green-500/10 to-emerald-600/10 border border-green-500/20 rounded-xl p-6">
+                                <i class="fas fa-mobile text-green-500 text-2xl mb-3"></i>
+                                <h4 class="font-bold theme-text-primary mb-2">Driver Mobile App</h4>
+                                <p class="text-sm theme-text-secondary">Comprehensive driver interface with real-time updates</p>
                             </div>
-                        </div>
-                        <div class="flex items-start p-3 bg-orange-50 dark:bg-orange-900 rounded-lg">
-                            <div class="bg-orange-500 text-white rounded-full w-6 h-6 flex items-center justify-center mr-3 mt-0.5 text-sm font-bold">4</div>
-                            <div>
-                                <h4 class="font-semibold text-orange-800 dark:text-orange-200">Analytics-Driven Optimization</h4>
-                                <p class="text-sm text-gray-600 dark:text-gray-300">Continuous improvement through data insights</p>
+                            <div class="floating-metric bg-gradient-to-br from-purple-500/10 to-indigo-600/10 border border-purple-500/20 rounded-xl p-6">
+                                <i class="fas fa-chart-network text-purple-500 text-2xl mb-3"></i>
+                                <h4 class="font-bold theme-text-primary mb-2">Analytics Dashboard</h4>
+                                <p class="text-sm theme-text-secondary">Executive intelligence and KPI monitoring</p>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Future Enhancements -->
-                <div>
-                    <h3 class="text-xl font-bold mb-4 theme-text-primary">Future Enhancement Opportunities</h3>
-                    <div class="space-y-4">
-                        <div class="bg-gradient-to-r from-indigo-50 to-indigo-100 p-4 rounded-lg border-l-4 border-indigo-500">
-                            <h4 class="font-semibold text-indigo-800 mb-2">
-                                <i class="fas fa-robot mr-2"></i>AI Integration
-                            </h4>
-                            <ul class="text-sm text-gray-700 space-y-1">
-                                <li>• Machine learning for demand forecasting</li>
-                                <li>• Predictive maintenance optimization</li>
-                                <li>• Customer behavior analytics</li>
-                            </ul>
+                    <!-- 2025 Q1 -->
+                    <div class="relative">
+                        <div class="flex items-center mb-6">
+                            <div class="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                                Q1
+                            </div>
+                            <div class="ml-6">
+                                <h3 class="text-2xl font-bold theme-text-primary">Smart Operations</h3>
+
+                            </div>
                         </div>
-                        <div class="bg-gradient-to-r from-teal-50 to-teal-100 p-4 rounded-lg border-l-4 border-teal-500">
-                            <h4 class="font-semibold text-teal-800 mb-2">
-                                <i class="fas fa-wifi mr-2"></i>IoT & Telematics
-                            </h4>
-                            <ul class="text-sm text-gray-700 space-y-1">
-                                <li>• Vehicle sensor integration</li>
-                                <li>• Environmental monitoring</li>
-                                <li>• Driver behavior analytics</li>
-                            </ul>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 ml-22">
+                            <div class="floating-metric bg-gradient-to-br from-orange-500/10 to-red-600/10 border border-orange-500/20 rounded-xl p-6">
+                                <i class="fas fa-satellite text-orange-500 text-2xl mb-3"></i>
+                                <h4 class="font-bold theme-text-primary mb-2">IoT Fleet Sensors</h4>
+                                <p class="text-sm theme-text-secondary">Real-time vehicle health and performance monitoring</p>
+                            </div>
+                            <div class="floating-metric bg-gradient-to-br from-indigo-500/10 to-purple-600/10 border border-indigo-500/20 rounded-xl p-6">
+                                <i class="fas fa-robot text-indigo-500 text-2xl mb-3"></i>
+                                <h4 class="font-bold theme-text-primary mb-2">Predictive Maintenance</h4>
+                                <p class="text-sm theme-text-secondary">AI-powered maintenance scheduling and alerts</p>
+                            </div>
+                            <div class="floating-metric bg-gradient-to-br from-pink-500/10 to-rose-600/10 border border-pink-500/20 rounded-xl p-6">
+                                <i class="fas fa-comments text-pink-500 text-2xl mb-3"></i>
+                                <h4 class="font-bold theme-text-primary mb-2">Customer Portal</h4>
+                                <p class="text-sm theme-text-secondary">Self-service order tracking and management</p>
+                            </div>
                         </div>
-                        <div class="bg-gradient-to-r from-pink-50 to-pink-100 p-4 rounded-lg border-l-4 border-pink-500">
-                            <h4 class="font-semibold text-pink-800 mb-2">
-                                <i class="fas fa-mobile-alt mr-2"></i>Customer Experience
-                            </h4>
-                            <ul class="text-sm text-gray-700 space-y-1">
-                                <li>• Mobile app for self-service</li>
-                                <li>• Augmented reality verification</li>
-                                <li>• Blockchain supply chain transparency</li>
-                            </ul>
+                    </div>
+
+                    <!-- 2025 Q2-Q3 -->
+                    <div class="relative">
+                        <div class="flex items-center mb-6">
+                            <div class="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                                Q2
+                            </div>
+                            <div class="ml-6">
+                                <h3 class="text-2xl font-bold theme-text-primary">Market Leadership</h3>
+
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 ml-22">
+                            <div class="floating-metric bg-gradient-to-br from-emerald-500/10 to-teal-600/10 border border-emerald-500/20 rounded-xl p-6">
+                                <i class="fas fa-leaf text-emerald-500 text-2xl mb-3"></i>
+                                <h4 class="font-bold theme-text-primary mb-2">Carbon Footprint</h4>
+                                <p class="text-sm theme-text-secondary">Sustainability tracking and green logistics</p>
+                            </div>
+                            <div class="floating-metric bg-gradient-to-br from-yellow-500/10 to-orange-600/10 border border-yellow-500/20 rounded-xl p-6">
+                                <i class="fas fa-network-wired text-yellow-500 text-2xl mb-3"></i>
+                                <h4 class="font-bold theme-text-primary mb-2">API Marketplace</h4>
+                                <p class="text-sm theme-text-secondary">Third-party integrations and ecosystem expansion</p>
+                            </div>
+                            <div class="floating-metric bg-gradient-to-br from-red-500/10 to-pink-600/10 border border-red-500/20 rounded-xl p-6">
+                                <i class="fas fa-eye text-red-500 text-2xl mb-3"></i>
+                                <h4 class="font-bold theme-text-primary mb-2">Computer Vision</h4>
+                                <p class="text-sm theme-text-secondary">Advanced cargo monitoring and safety systems</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1008,8 +1659,23 @@
             </div>
         </div>
     </section>
+    
 
-    <!-- Scroll to Top Button -->
+
+
+        <!-- Quick Navigation -->
+        <div class="fixed bottom-6 right-6 z-50">
+            <div class="flex flex-col space-y-3">
+                <button id="scrollToTop" class="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 opacity-0 translate-y-4">
+                    <i class="fas fa-arrow-up"></i>
+                </button>
+            </div>
+        </div>
+
+
+    </div>
+
+        <!-- Scroll to Top Button -->
     <button id="scrollToTop" class="scroll-to-top bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg transition-all duration-300">
         <i class="fas fa-arrow-up"></i>
     </button>
@@ -1029,138 +1695,208 @@
             </div>
         </div>
     </footer>
-
     <script>
-        // Theme Toggle Functionality
-        class ThemeManager {
+        // Modern Theme Management System
+        class AdvancedThemeManager {
             constructor() {
                 this.themeToggle = document.getElementById('themeToggle');
-                this.themeToggleMobile = document.getElementById('themeToggle-mobile');
                 this.themeIcon = document.getElementById('themeIcon');
+                this.sidebar = document.getElementById('sidebar');
+                this.sidebarToggle = document.getElementById('sidebarToggle');
+                this.contentWrapper = document.querySelector('.content-wrapper');
                 this.body = document.body;
                 
-                // Get saved theme or default to dark
-                this.currentTheme = localStorage.getItem('theme') || 'dark';
+                // Initialize theme
+                this.currentTheme = localStorage.getItem('fleet-theme') || 'dark';
                 this.applyTheme(this.currentTheme);
                 
-                // Add event listeners
-                if (this.themeToggle) {
-                    this.themeToggle.addEventListener('click', () => this.toggleTheme());
-                }
-                if (this.themeToggleMobile) {
-                    this.themeToggleMobile.addEventListener('click', () => this.toggleTheme());
-                }
+                // Initialize sidebar
+                this.sidebarOpen = false;
+                
+                this.bindEvents();
+                this.initializeAnimations();
+            }
+
+            bindEvents() {
+                // Theme toggle
+                this.themeToggle?.addEventListener('click', () => this.toggleTheme());
+                
+                // Sidebar toggle
+                this.sidebarToggle?.addEventListener('click', () => this.toggleSidebar());
+                
+                // Close sidebar on outside click
+                document.addEventListener('click', (e) => {
+                    if (this.sidebarOpen && !this.sidebar.contains(e.target) && !this.sidebarToggle.contains(e.target)) {
+                        this.closeSidebar();
+                    }
+                });
+                
+                // Smooth scrolling for navigation
+                document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                    anchor.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const target = document.querySelector(anchor.getAttribute('href'));
+                        if (target) {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            this.closeSidebar();
+                        }
+                    });
+                });
+                
+                // Scroll to top button
+                this.initScrollToTop();
             }
 
             toggleTheme() {
                 this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
                 this.applyTheme(this.currentTheme);
-                localStorage.setItem('theme', this.currentTheme);
+                localStorage.setItem('fleet-theme', this.currentTheme);
             }
 
             applyTheme(theme) {
                 this.body.setAttribute('data-theme', theme);
                 
-                // Update all theme toggle buttons and icons
-                document.querySelectorAll('[id^="theme-toggle"]').forEach(button => {
-                    const icon = button.querySelector('i');
-                    if (icon) {
-                        if (theme === 'dark') {
-                            icon.className = 'fas fa-sun';
-                        } else {
-                            icon.className = 'fas fa-moon';
-                        }
+                if (this.themeIcon) {
+                    this.themeIcon.className = theme === 'dark' ? 'fas fa-sun theme-text-primary text-lg' : 'fas fa-moon theme-text-primary text-lg';
+                }
+                
+                // Add theme transition effect
+                this.body.style.transition = 'all 0.3s ease';
+                setTimeout(() => {
+                    this.body.style.transition = '';
+                }, 300);
+            }
+
+            toggleSidebar() {
+                this.sidebarOpen ? this.closeSidebar() : this.openSidebar();
+            }
+
+            openSidebar() {
+                this.sidebar.classList.add('open');
+                this.sidebarOpen = true;
+            }
+
+            closeSidebar() {
+                this.sidebar.classList.remove('open');
+                this.sidebarOpen = false;
+            }
+
+            initScrollToTop() {
+                const scrollBtn = document.getElementById('scrollToTop');
+                
+                window.addEventListener('scroll', () => {
+                    if (window.pageYOffset > 300) {
+                        scrollBtn.style.opacity = '1';
+                        scrollBtn.style.transform = 'translateY(0)';
+                    } else {
+                        scrollBtn.style.opacity = '0';
+                        scrollBtn.style.transform = 'translateY(16px)';
                     }
+                });
+                
+                scrollBtn.addEventListener('click', () => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+            }
+
+            initializeAnimations() {
+                // Intersection Observer for scroll animations
+                const observerOptions = {
+                    threshold: 0.1,
+                    rootMargin: '0px 0px -50px 0px'
+                };
+
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('animate-in');
+                        }
+                    });
+                }, observerOptions);
+
+                // Observe sections for animation
+                document.querySelectorAll('section').forEach(section => {
+                    observer.observe(section);
+                });
+
+                // Hexagon animation observer
+                const hexagonObserver = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            entry.target.style.animationPlayState = 'running';
+                        }
+                    });
+                }, { threshold: 0.5 });
+
+                document.querySelectorAll('.metric-hexagon').forEach(hexagon => {
+                    hexagonObserver.observe(hexagon);
                 });
             }
         }
 
-        // Initialize theme manager
-        const themeManager = new ThemeManager();
+        // Advanced Performance Metrics System
+        class PerformanceMetrics {
+            constructor() {
+                this.metrics = {
+                    otd: 95.2,
+                    cpk: 12.8,
+                    vur: 87.3,
+                    roi: 31.5
+                };
+                
+                this.initializeCounters();
+            }
 
-        // Add smooth scrolling for better UX
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth'
+            initializeCounters() {
+                // Animate metric counters on scroll
+                const counterObserver = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting && !entry.target.dataset.animated) {
+                            this.animateCounter(entry.target);
+                            entry.target.dataset.animated = 'true';
+                        }
                     });
-                }
-            });
-        });
+                }, { threshold: 0.5 });
 
-        // Add animation on scroll
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
+                document.querySelectorAll('.metric-hexagon-content .text-2xl').forEach(counter => {
+                    counterObserver.observe(counter);
+                });
+            }
 
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.style.opacity = '1';
-                    entry.target.style.transform = 'translateY(0)';
-                }
-            });
-        }, observerOptions);
+            animateCounter(element) {
+                const text = element.textContent;
+                const isPercentage = text.includes('%');
+                const isCurrency = text.includes('₹');
+                const finalValue = parseFloat(text.replace(/[₹%]/g, ''));
 
-        // Observe all sections for animation
-        document.querySelectorAll('section').forEach(section => {
-            section.style.opacity = '0';
-            section.style.transform = 'translateY(20px)';
-            section.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-            observer.observe(section);
-        });
-
-        // Initialize the first section as visible
-        const firstSection = document.querySelector('section');
-        if (firstSection) {
-            firstSection.style.opacity = '1';
-            firstSection.style.transform = 'translateY(0)';
+                let currentValue = 0;
+                const increment = finalValue / 50;
+                const timer = setInterval(() => {
+                    currentValue += increment;
+                    if (currentValue >= finalValue) {
+                        currentValue = finalValue;
+                        clearInterval(timer);
+                    }
+                    
+                    let displayValue = Math.round(currentValue);
+                    if (isCurrency) displayValue = `₹${displayValue}`;
+                    if (isPercentage) displayValue = `${displayValue}%`;
+                    
+                    element.textContent = displayValue;
+                }, 20);
+            }
         }
 
-        // Scroll to Top functionality
-        const scrollToTopBtn = document.getElementById('scrollToTop');
-        
-        window.addEventListener('scroll', function() {
-            if (window.pageYOffset > 300) {
-                scrollToTopBtn.classList.add('visible');
-            } else {
-                scrollToTopBtn.classList.remove('visible');
-            }
-        });
-
-        scrollToTopBtn.addEventListener('click', function() {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-        });
-
-        // Add pulse animation to metrics on scroll
-        const metricsObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('pulse-animation');
-                    setTimeout(() => {
-                        entry.target.classList.remove('pulse-animation');
-                    }, 2000);
-                }
-            });
-        }, { threshold: 0.5 });
-
-        document.querySelectorAll('.metric-circle').forEach(metric => {
-            metricsObserver.observe(metric);
-        });
-
-        // Add loading animation
-        document.addEventListener('DOMContentLoaded', function() {
-            document.body.classList.add('animate-fade-in');
+        // Initialize systems
+        document.addEventListener('DOMContentLoaded', () => {
+            new AdvancedThemeManager();
+            new PerformanceMetrics();
             
-            // Add staggered animations to cards
-            const cards = document.querySelectorAll('.card-hover');
+            // Add loading animation
+            document.body.classList.add('fade-in-up');
+            
+            // Stagger animation for cards
+            const cards = document.querySelectorAll('.modern-card');
             cards.forEach((card, index) => {
                 setTimeout(() => {
                     card.style.opacity = '1';
@@ -1168,6 +1904,32 @@
                 }, index * 100);
             });
         });
+
+        // CSS Animation classes
+        const style = document.createElement('style');
+        style.textContent = `
+            .animate-in {
+                animation: slideInUp 0.6s ease-out forwards;
+            }
+            
+            @keyframes slideInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            .modern-card {
+                opacity: 0;
+                transform: translateY(20px);
+                transition: all 0.3s ease;
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 
 </body>

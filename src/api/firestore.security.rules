@@ -1,0 +1,90 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection - role-based access
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher'];
+    }
+    
+    // Tasks collection - strict driver permissions
+    match /tasks/{taskId} {
+      // Admins and dispatchers can do everything
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher'];
+      
+      // Drivers can only read tasks assigned to them
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver' &&
+        resource.data.assignedTo == request.auth.uid;
+      
+      // Drivers can only update status and location, NOT delete or modify core task data
+      allow update: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver' &&
+        resource.data.assignedTo == request.auth.uid &&
+        // Only allow updates to specific fields
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'currentLocation', 'lastUpdate', 'notes']) &&
+        // Prevent status changes to certain protected states
+        !(request.resource.data.status in ['cancelled', 'deleted']) &&
+        // Ensure task core data remains unchanged
+        request.resource.data.taskId == resource.data.taskId &&
+        request.resource.data.assignedTo == resource.data.assignedTo &&
+        request.resource.data.priority == resource.data.priority &&
+        request.resource.data.destination == resource.data.destination;
+    }
+    
+    // Vehicles collection
+    match /vehicles/{vehicleId} {
+      // Admins and dispatchers can manage vehicles
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher'];
+      
+      // Drivers can only read vehicle info and update location/status
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver' &&
+        resource.data.assignedDriver == request.auth.uid;
+      
+      allow update: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver' &&
+        resource.data.assignedDriver == request.auth.uid &&
+        // Only location and status updates allowed
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentLocation', 'status', 'lastUpdate']);
+    }
+    
+    // Routes collection - read-only for drivers
+    match /routes/{routeId} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher'];
+      
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver';
+    }
+    
+    // Analytics and reports - admin/dispatcher only
+    match /analytics/{document} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher'];
+    }
+    
+    // Audit logs - system generated, read-only for admins
+    match /auditLogs/{logId} {
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if false; // Only server-side functions can write logs
+    }
+    
+    // Performance metrics - role-based access
+    match /metrics/{metricId} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'dispatcher'];
+      
+      // Drivers can read their own performance metrics
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver' &&
+        resource.data.driverId == request.auth.uid;
+    }
+  }
+}
