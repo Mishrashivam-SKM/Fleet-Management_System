@@ -123,30 +123,34 @@ cd Fleet-Management_System
 ### 2. Firebase Configuration
 1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
 2. Enable **Firestore Database** and **Authentication**
-3. Update Firebase configuration in `src/api/config.js`:
+3. Provide Firebase config at runtime through `window.__FLEET_APP_CONFIG__` before `src/app.js` loads:
 ```javascript
-const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  // ... other config values
+window.__FLEET_APP_CONFIG__ = {
+  FIREBASE_API_KEY: "your-api-key",
+  FIREBASE_AUTH_DOMAIN: "your-project.firebaseapp.com",
+  FIREBASE_PROJECT_ID: "your-project-id",
+  FIREBASE_STORAGE_BUCKET: "your-project.appspot.com",
+  FIREBASE_MESSAGING_SENDER_ID: "your-sender-id",
+  FIREBASE_APP_ID: "your-app-id",
+  FIREBASE_MEASUREMENT_ID: "your-measurement-id",
+  GEMINI_API_KEY: "optional-gemini-key",
+  ORS_API_KEY: "optional-ors-key"
 };
 ```
 
 ### 3. API Keys Configuration
-Update the following API keys in respective files:
+The app now reads credentials from runtime config instead of hardcoded source files.
 
-**Gemini AI Geocoding** (`src/services/geminiGeocodingService.js`):
-```javascript
-const GEMINI_API_KEY = 'your-gemini-api-key';
-```
+Gemini and route-optimization features automatically fall back to non-secret behavior when keys are not provided.
 
-**OpenRouteService** (`src/services/optimizationService.js`):
-```javascript
-const ORS_API_KEY = 'your-ors-api-key';
-```
+If you want to keep local secrets out of source control, inject them through your hosting platform or a local bootstrap script that defines `window.__FLEET_APP_CONFIG__` before the app module loads.
 
-### 4. Start the Development Server
+### 4. Deployment Readiness
+- The app is static and can be deployed to Firebase Hosting, Vercel, or Netlify.
+- Gemini geocoding and AI travel-time estimation are optional; when no key is supplied, the app uses public geocoding and deterministic fallback logic.
+- Firebase is still required for auth and data storage. If Firebase config is missing, the app now fails gracefully with a clear configuration message instead of throwing during module import.
+
+### 5. Start the Development Server
 ```bash
 # Using Python HTTP Server
 python3 -m http.server 8000
@@ -155,14 +159,14 @@ python3 -m http.server 8000
 npx http-server -p 8000
 ```
 
-### 5. Access the Application
+### 6. Access the Application
 Open your browser and navigate to:
 - **Main Application**: `http://localhost:8000`
 - **Business Dashboard**: `http://localhost:8000/Business/business-dashboard.html`
 
-### 6. Default Login Credentials
-- **Dispatcher**: `dispatcher@example.com` / `dispatcher123`
-- **Driver**: `priya@example.com` / `driver123`
+### 7. Roles and Login
+Role selection is stored at login and the dashboards now use that runtime role instead of a hardcoded dispatcher email.
+Create the corresponding Firestore `users` documents and assign roles through security rules for production use.
 
 ## 📖 Usage Guide
 

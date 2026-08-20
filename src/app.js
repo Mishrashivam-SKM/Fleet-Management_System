@@ -166,7 +166,12 @@ const main = async () => {
     
     try {
         // Initialize Firebase and theme first
-        initializeFirebase();
+        const firebaseReady = initializeFirebase();
+        if (!firebaseReady) {
+            updateLoadingProgress(100, 'Firebase config missing.');
+            hideFirebaseLoading();
+            return;
+        }
         updateLoadingProgress(30, 'Configuring theme system...');
         initializeTheme();
         
@@ -667,7 +672,17 @@ const initializeLoginHandlers = () => {
  * Determines user role based on email
  */
 const getUserRole = (email) => {
-    return email === 'dispatcher@example.com' ? 'dispatcher' : 'driver';
+    const storedRole = localStorage.getItem('userRole');
+    if (storedRole === 'dispatcher' || storedRole === 'driver') {
+        return storedRole;
+    }
+
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!normalizedEmail) {
+        return 'driver';
+    }
+
+    return normalizedEmail.includes('dispatch') ? 'dispatcher' : 'driver';
 };
 
 // --- Dashboard Setups ---
@@ -2005,7 +2020,7 @@ const handleCompleteSystemReset = async () => {
             // Force refresh the dispatcher dashboard to show empty state
             const appRoot = document.getElementById('app-root');
             const currentUser = getCurrentUser();
-            if (currentUser && currentUser.email === 'dispatcher@example.com') {
+            if (currentUser && getUserRole(currentUser.email) === 'dispatcher') {
                 appRoot.innerHTML = renderDispatcherDashboard(currentUser.email);
                 setupDispatcherDashboard();
             }

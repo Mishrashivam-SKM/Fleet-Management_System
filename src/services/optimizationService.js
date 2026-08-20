@@ -1,4 +1,4 @@
-import { ORS_API_KEY, GEMINI_API_KEY } from '../api/config.js';
+import { GEMINI_API_KEY } from '../api/config.js';
 
 /**
  * Transforms application data into the format required by the ORS Vroom API.
@@ -285,6 +285,10 @@ function calculateHaversineDistance(lat1, lng1, lat2, lng2) {
 async function getGeminiTravelTime(fromLat, fromLng, toLat, toLng) {
     try {
         const distance = calculateHaversineDistance(fromLat, fromLng, toLat, toLng);
+
+        if (!GEMINI_API_KEY) {
+            throw new Error('Gemini API key is not configured');
+        }
         
         // For very short distances, use minimum time
         if (distance < 0.5) {

@@ -1,22 +1,28 @@
-// =======================================================
-// /src/api/config.js - FINAL SIMPLE STRUCTURE (V8.0)
-// =======================================================
+const runtimeConfig = globalThis.window?.__FLEET_APP_CONFIG__ || {};
 
-// --- 1. FIREBASE CONFIGURATION (Auth, Real-Time, and ALL Data Storage) ---
-export const FIREBASE_CONFIG = {
-    apiKey: "Enter your api key",
-    authDomain: "fleet-exam-project.firebaseapp.com",
-    projectId: "fleet-exam-project",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: "",
-    measurementId: ""
+const pickConfigValue = (key) => {
+    const value = runtimeConfig[key];
+    return typeof value === 'string' ? value.trim() : '';
 };
 
-// --- 2. OPENROUTESERVICE CONFIGURATION (DSA Solver) ---
-// This key is used for the VRP Heuristic and Distance Matrix.
-export const ORS_API_KEY = '';
+export const FIREBASE_CONFIG = {
+    apiKey: pickConfigValue('FIREBASE_API_KEY'),
+    authDomain: pickConfigValue('FIREBASE_AUTH_DOMAIN'),
+    projectId: pickConfigValue('FIREBASE_PROJECT_ID'),
+    storageBucket: pickConfigValue('FIREBASE_STORAGE_BUCKET'),
+    messagingSenderId: pickConfigValue('FIREBASE_MESSAGING_SENDER_ID'),
+    appId: pickConfigValue('FIREBASE_APP_ID'),
+    measurementId: pickConfigValue('FIREBASE_MEASUREMENT_ID')
+};
 
-// --- 3. GEMINI AI CONFIGURATION (Geocoding & Travel Time Calculations) ---
-// This key is used for AI-powered geocoding and intelligent travel time estimation.
-export const GEMINI_API_KEY = '';
+export const ORS_API_KEY = pickConfigValue('ORS_API_KEY');
+export const GEMINI_API_KEY = pickConfigValue('GEMINI_API_KEY');
+
+export const isFirebaseConfigured = () => {
+    return Boolean(
+        FIREBASE_CONFIG.apiKey &&
+        FIREBASE_CONFIG.authDomain &&
+        FIREBASE_CONFIG.projectId &&
+        FIREBASE_CONFIG.appId
+    );
+};

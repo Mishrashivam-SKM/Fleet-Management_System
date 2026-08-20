@@ -25,6 +25,7 @@ import {
     writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { FIREBASE_CONFIG } from './config.js';
+import { isFirebaseConfigured } from './config.js';
 
 let auth;
 let db;
@@ -32,13 +33,20 @@ let db;
 // --- Initialization & Auth ---
 export const initializeFirebase = () => {
     try {
+        if (!isFirebaseConfigured()) {
+            document.body.innerHTML = `<div style="text-align: center; padding: 40px; font-family: sans-serif;"><h1>Configuration Error</h1><p>Firebase runtime config is missing. Define <code>window.__FLEET_APP_CONFIG__</code> before loading the app.</p></div>`;
+            return false;
+        }
+
         const app = initializeApp(FIREBASE_CONFIG);
         auth = getAuth(app);
         db = getFirestore(app);
+        return true;
     } catch (error) {
         console.error("Firebase initialization failed:", error);
         // Display a user-friendly error on the page
-        document.body.innerHTML = `<div style="text-align: center; padding: 40px; font-family: sans-serif;"><h1>Configuration Error</h1><p>Could not connect to Firebase. Please check your API keys in <code>src/api/config.js</code> and your Firebase project setup.</p></div>`;
+        document.body.innerHTML = `<div style="text-align: center; padding: 40px; font-family: sans-serif;"><h1>Configuration Error</h1><p>Could not connect to Firebase. Check your runtime config and Firebase project setup.</p></div>`;
+        return false;
     }
 };
 

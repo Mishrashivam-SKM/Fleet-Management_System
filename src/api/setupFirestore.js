@@ -1,15 +1,24 @@
 import { getFirestore, collection, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { FIREBASE_CONFIG } from './config.js';
+import { FIREBASE_CONFIG, isFirebaseConfigured } from './config.js';
 import { initialVehicles, initialTasks } from '../data/initialData.js';
 
-// Initialize Firebase
-const app = initializeApp(FIREBASE_CONFIG);
-const db = getFirestore(app);
+let app;
+let db;
 
 // Function to initialize collections
 export const initializeFirestore = async () => {
     try {
+        if (!isFirebaseConfigured()) {
+            console.warn('Firestore initialization skipped because Firebase config is missing.');
+            return false;
+        }
+
+        if (!app) {
+            app = initializeApp(FIREBASE_CONFIG);
+            db = getFirestore(app);
+        }
+
         // Initialize vehicles collection
         console.log("Initializing vehicles collection...");
         for (const vehicle of initialVehicles) {

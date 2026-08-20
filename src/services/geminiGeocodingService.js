@@ -3,8 +3,8 @@
  * Uses Google's Gemini API to directly convert addresses to coordinates
  */
 
-// You'll need to set your Gemini API key here
-const GEMINI_API_KEY = 'AIzaSyA_vSZDP5556pkOsqBwFBUJAhT_Tr2f6JI';
+import { GEMINI_API_KEY } from '../api/config.js';
+
 // Updated endpoint for stable Gemini 2.5 Flash model
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
