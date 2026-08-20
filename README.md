@@ -141,24 +141,17 @@ VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 VITE_FIREBASE_APP_ID=your-app-id
 VITE_FIREBASE_MEASUREMENT_ID=your-measurement-id
-```
-
-Optional variables:
-
-```bash
-VITE_GEMINI_API_KEY=your-gemini-api-key
-VITE_ORS_API_KEY=your-ors-api-key
 VITE_DEMO_DRIVER_EMAIL=driver@fleet.test
 VITE_DEMO_CUSTOMER_ID=sample-customer
 ```
 
-Gemini and route-optimization features automatically fall back to non-secret behavior when optional keys are not provided.
+Gemini geocoding and route optimization now run on safe fallback logic only, so no secret API keys need to be bundled into the Vercel client build.
 
-Keep `.env` out of source control. Use your hosting platform's secret/environment settings in production.
+Keep `.env` out of source control. Use your hosting platform's environment settings for the public Firebase values only.
 
 ### 4. Deployment Readiness
-- The app uses Vite for local development and production builds, and can be deployed to Firebase Hosting, Vercel, or Netlify after `npm run build`.
-- Gemini geocoding and AI travel-time estimation are optional; when no key is supplied, the app uses public geocoding and deterministic fallback logic.
+- The app uses Vite for local development and production builds, and can be deployed to Vercel, Firebase Hosting, or Netlify after `npm run build`.
+- No secret API keys are required in the frontend bundle. Geocoding and optimization fall back to public services and deterministic logic.
 - Firebase is still required for auth and data storage. If Firebase config is missing, the app now fails gracefully with a clear configuration message instead of throwing during module import.
 
 ### 5. Start the Development Server
@@ -231,15 +224,22 @@ Enhanced geocoding for accurate Indian address resolution:
 ## 🚀 Deployment Options
 
 ### Local Development
-- Python HTTP Server for quick local testing
+- Vite dev server for local testing
 - Hot-reload development environment
 - Debug mode with comprehensive logging
 
 ### Production Deployment
+- **Vercel**: Recommended static deployment with environment variables for public Firebase config
 - **Firebase Hosting**: Scalable web hosting with CDN
-- **Vercel/Netlify**: Static site deployment options
+- **Netlify**: Static site deployment option
 - **Docker**: Containerized deployment for enterprise environments
 - **AWS/GCP**: Cloud infrastructure deployment
+
+### Vercel Deployment
+1. Import the GitHub repository into Vercel.
+2. Set the build command to `npm run build` and the output directory to `dist`.
+3. Add the public Firebase variables from `.env.example` in the Vercel project settings.
+4. Deploy the site.
 
 ## 🔒 Security Features
 

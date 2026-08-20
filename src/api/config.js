@@ -14,8 +14,8 @@ export const FIREBASE_CONFIG = {
     measurementId: pickConfigValue('FIREBASE_MEASUREMENT_ID')
 };
 
-export const ORS_API_KEY = pickConfigValue('ORS_API_KEY');
-export const GEMINI_API_KEY = pickConfigValue('GEMINI_API_KEY');
+export const ORS_API_KEY = '';
+export const GEMINI_API_KEY = '';
 
 export const DEMO_DATA = {
     driverEmail: pickConfigValue('VITE_DEMO_DRIVER_EMAIL') || 'driver@fleet.test',
