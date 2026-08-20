@@ -1,9 +1,11 @@
+import { DEMO_DATA } from '../api/config.js';
+
 // Initial data setup for Firestore collections
 export const initialVehicles = [
     {
         id: "VAN-01",
         driverName: "Priya Sharma",
-        driverEmail: "priya@example.com",
+        driverEmail: DEMO_DATA.driverEmail,
         maxCapacity: 100,
         startLocation: { latitude: 19.2183, longitude: 72.9781 },
         liveLocation: { latitude: 19.2183, longitude: 72.9781 },
@@ -16,7 +18,7 @@ export const initialVehicles = [
 export const initialTasks = [
     {
         id: "TASK-001",
-        customerId: "Croma",
+        customerId: DEMO_DATA.customerId,
         demandVolume: 70,
         deliveryLocation: { latitude: 19.2582, longitude: 72.9735 },
         status: "pending",

@@ -123,40 +123,48 @@ cd Fleet-Management_System
 ### 2. Firebase Configuration
 1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
 2. Enable **Firestore Database** and **Authentication**
-3. Provide Firebase config at runtime through `window.__FLEET_APP_CONFIG__` before `src/app.js` loads:
-```javascript
-window.__FLEET_APP_CONFIG__ = {
-  FIREBASE_API_KEY: "your-api-key",
-  FIREBASE_AUTH_DOMAIN: "your-project.firebaseapp.com",
-  FIREBASE_PROJECT_ID: "your-project-id",
-  FIREBASE_STORAGE_BUCKET: "your-project.appspot.com",
-  FIREBASE_MESSAGING_SENDER_ID: "your-sender-id",
-  FIREBASE_APP_ID: "your-app-id",
-  FIREBASE_MEASUREMENT_ID: "your-measurement-id",
-  GEMINI_API_KEY: "optional-gemini-key",
-  ORS_API_KEY: "optional-ors-key"
-};
+3. Create a local `.env` file from `.env.example` and fill in the values:
+```bash
+cp .env.example .env
 ```
 
 ### 3. API Keys Configuration
-The app now reads credentials from runtime config instead of hardcoded source files.
+The app reads credentials from `.env` variables at build time instead of hardcoded source files.
 
-Gemini and route-optimization features automatically fall back to non-secret behavior when keys are not provided.
+Required variables:
 
-If you want to keep local secrets out of source control, inject them through your hosting platform or a local bootstrap script that defines `window.__FLEET_APP_CONFIG__` before the app module loads.
+```bash
+VITE_FIREBASE_API_KEY=your-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+VITE_FIREBASE_APP_ID=your-app-id
+VITE_FIREBASE_MEASUREMENT_ID=your-measurement-id
+```
+
+Optional variables:
+
+```bash
+VITE_GEMINI_API_KEY=your-gemini-api-key
+VITE_ORS_API_KEY=your-ors-api-key
+VITE_DEMO_DRIVER_EMAIL=driver@fleet.test
+VITE_DEMO_CUSTOMER_ID=sample-customer
+```
+
+Gemini and route-optimization features automatically fall back to non-secret behavior when optional keys are not provided.
+
+Keep `.env` out of source control. Use your hosting platform's secret/environment settings in production.
 
 ### 4. Deployment Readiness
-- The app is static and can be deployed to Firebase Hosting, Vercel, or Netlify.
+- The app uses Vite for local development and production builds, and can be deployed to Firebase Hosting, Vercel, or Netlify after `npm run build`.
 - Gemini geocoding and AI travel-time estimation are optional; when no key is supplied, the app uses public geocoding and deterministic fallback logic.
 - Firebase is still required for auth and data storage. If Firebase config is missing, the app now fails gracefully with a clear configuration message instead of throwing during module import.
 
 ### 5. Start the Development Server
 ```bash
-# Using Python HTTP Server
-python3 -m http.server 8000
-
-# Or using Node.js (if you have http-server installed)
-npx http-server -p 8000
+npm install
+npm run dev
 ```
 
 ### 6. Access the Application
